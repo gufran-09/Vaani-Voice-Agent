@@ -1,0 +1,167 @@
+﻿Vaani-Voice-main
+|-- .next
+|   |-- cache
+|   |   |-- eslint
+|   |   |   \-- .cache_gixv0m
+|   |   |-- swc
+|   |   |   \-- plugins
+|   |   |       \-- v7_windows_x86_64_0.102.1
+|   |   \-- webpack
+|   |       |-- client-development
+|   |       |   |-- 0.pack.gz
+|   |       |   |-- 1.pack.gz
+|   |       |   |-- 2.pack.gz
+|   |       |   |-- 3.pack.gz
+|   |       |   |-- 4.pack.gz
+|   |       |   |-- 5.pack.gz
+|   |       |   |-- index.pack.gz
+|   |       |   \-- index.pack.gz.old
+|   |       |-- server-development
+|   |       |   |-- 0.pack.gz
+|   |       |   |-- 1.pack.gz
+|   |       |   |-- 2.pack.gz
+|   |       |   |-- index.pack.gz
+|   |       |   \-- index.pack.gz.old
+|   |       \-- server-production
+|   |           |-- 0.pack
+|   |           \-- index.pack
+|   |-- server
+|   |   |-- vendor-chunks
+|   |   |   |-- @radix-ui.js
+|   |   |   |-- @supabase.js
+|   |   |   |-- @swc.js
+|   |   |   |-- class-variance-authority.js
+|   |   |   |-- clsx.js
+|   |   |   |-- lucide-react.js
+|   |   |   |-- next.js
+|   |   |   |-- next-themes.js
+|   |   |   |-- tailwind-merge.js
+|   |   |   |-- tr46.js
+|   |   |   |-- webidl-conversions.js
+|   |   |   \-- whatwg-url.js
+|   |   |-- app-paths-manifest.json
+|   |   |-- middleware-build-manifest.js
+|   |   |-- middleware-manifest.json
+|   |   |-- middleware-react-loadable-manifest.js
+|   |   |-- next-font-manifest.js
+|   |   |-- next-font-manifest.json
+|   |   |-- pages-manifest.json
+|   |   |-- server-reference-manifest.js
+|   |   |-- server-reference-manifest.json
+|   |   \-- webpack-runtime.js
+|   |-- static
+|   |   |-- chunks
+|   |   |   |-- app-pages-internals.js
+|   |   |   |-- main-app.js
+|   |   |   |-- polyfills.js
+|   |   |   \-- webpack.js
+|   |   |-- css
+|   |   |-- development
+|   |   |   |-- _buildManifest.js
+|   |   |   \-- _ssgManifest.js
+|   |   |-- media
+|   |   |   |-- 19cfc7226ec3afaa-s.woff2
+|   |   |   |-- 21350d82a1f187e9-s.woff2
+|   |   |   |-- 28a2004cf8372660-s.woff2
+|   |   |   |-- 47f136985ef5b5cb-s.woff2
+|   |   |   |-- 4ead58c4dcc3f285-s.woff2
+|   |   |   |-- 8e9860b6e62d6359-s.woff2
+|   |   |   |-- ba9851c3c22cd980-s.woff2
+|   |   |   |-- c5fe6dc8356a8c31-s.woff2
+|   |   |   |-- df0a9ae256c0569c-s.woff2
+|   |   |   |-- e4af272ccee01ff0-s.p.woff2
+|   |   |   \-- eaead17c7dbfcd5d-s.p.woff2
+|   |   \-- webpack
+|   |       |-- 633457081244afec._.hot-update.json
+|   |       |-- bc90268ce2e85b7b.webpack.hot-update.json
+|   |       \-- webpack.bc90268ce2e85b7b.hot-update.js
+|   |-- types
+|   |   \-- package.json
+|   |-- app-build-manifest.json
+|   |-- build-manifest.json
+|   |-- package.json
+|   |-- react-loadable-manifest.json
+|   \-- trace
+|-- components
+|   |-- ui
+|   |   |-- accordion.tsx
+|   |   |-- alert.tsx
+|   |   |-- alert-dialog.tsx
+|   |   |-- aspect-ratio.tsx
+|   |   |-- avatar.tsx
+|   |   |-- badge.tsx
+|   |   |-- breadcrumb.tsx
+|   |   |-- button.tsx
+|   |   |-- calendar.tsx
+|   |   |-- card.tsx
+|   |   |-- carousel.tsx
+|   |   |-- chart.tsx
+|   |   |-- checkbox.tsx
+|   |   |-- collapsible.tsx
+|   |   |-- command.tsx
+|   |   |-- context-menu.tsx
+|   |   |-- dialog.tsx
+|   |   |-- drawer.tsx
+|   |   |-- dropdown-menu.tsx
+|   |   |-- form.tsx
+|   |   |-- hover-card.tsx
+|   |   |-- input.tsx
+|   |   |-- input-otp.tsx
+|   |   |-- label.tsx
+|   |   |-- menubar.tsx
+|   |   |-- navigation-menu.tsx
+|   |   |-- pagination.tsx
+|   |   |-- popover.tsx
+|   |   |-- progress.tsx
+|   |   |-- radio-group.tsx
+|   |   |-- resizable.tsx
+|   |   |-- scroll-area.tsx
+|   |   |-- select.tsx
+|   |   |-- separator.tsx
+|   |   |-- sheet.tsx
+|   |   |-- skeleton.tsx
+|   |   |-- slider.tsx
+|   |   |-- sonner.tsx
+|   |   |-- switch.tsx
+|   |   |-- table.tsx
+|   |   |-- tabs.tsx
+|   |   |-- textarea.tsx
+|   |   |-- toast.tsx
+|   |   |-- toaster.tsx
+|   |   |-- toggle.tsx
+|   |   |-- toggle-group.tsx
+|   |   \-- tooltip.tsx
+|   |-- app-provider.tsx
+|   |-- app-sidebar.tsx
+|   |-- app-topbar.tsx
+|   |-- auth-provider.tsx
+|   \-- theme-provider.tsx
+|-- docs
+|   \-- milestone-3c-security.md
+|-- hooks
+|   \-- use-toast.ts
+|-- lib
+|   |-- supabase.ts
+|   |-- types.ts
+|   \-- utils.ts
+|-- supabase
+|   \-- migrations
+|       |-- 20261009095652_create_core_tenant_schema.sql
+|       |-- 20261009095830_create_rls_policies.sql
+|       \-- 20261009095846_create_profile_trigger_and_helpers.sql
+|-- .eslintrc.json
+|-- .gitignore
+|-- components.json
+|-- netlify.toml
+|-- next.config.js
+|-- next-env.d.ts
+|-- package.json
+|-- package-lock.json
+|-- postcss.config.js
+|-- project.txt
+|-- README.md
+|-- tailwind.config.ts
+|-- tree.txt
+|-- tsconfig.json
+|-- tsconfig.tsbuildinfo
+\-- Vaani-Voice-milestone-3c.zip
