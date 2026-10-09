@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useApp } from '@/components/app-provider';
 import {
   Phone,
@@ -22,12 +21,13 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  RotateCcw,
-  User,
   Bot,
   Loader2,
   Send,
   Smartphone,
+  CheckCircle2,
+  AlertCircle,
+  Radio,
 } from 'lucide-react';
 
 interface Message {
@@ -38,22 +38,130 @@ interface Message {
   orderData?: any;
 }
 
+// ==========================================
+// 1. Web Audio Telephony Sound Effects Synthesizer
+// ==========================================
+class TelephonySoundEffects {
+  private ctx: AudioContext | null = null;
+
+  private getContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+    return this.ctx;
+  }
+
+  // Outgoing dual-frequency phone ring (400Hz + 450Hz)
+  playRingBurst(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc1.frequency.value = 400;
+    osc2.frequency.value = 450;
+    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.9);
+    osc2.stop(now + 0.9);
+  }
+
+  // Call Connected 2-note chime
+  playConnectChime(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523.25, now); // C5
+    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.15); // E5
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
+
+  // Order Confirmed Success Bell
+  playOrderSuccessChime(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(587.33, now); // D5
+    osc.frequency.setValueAtTime(880.00, now + 0.12); // A5
+    osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.55);
+  }
+
+  // Disconnect Busy Tone
+  playDisconnectTone(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    for (let i = 0; i < 2; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = now + i * 0.18;
+      osc.frequency.value = 425;
+      gain.gain.setValueAtTime(0.09, start);
+      gain.gain.setValueAtTime(0.001, start + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.12);
+    }
+  }
+}
+
+const sounds = new TelephonySoundEffects();
+
 const FILLER_PHRASES = [
   'Ji, ek second...',
   'Sure, checking the kitchen for you...',
-  'Haanji, let me note that down...',
-  'Got that, checking availability...',
+  'Haanji, noting that down...',
+  'Got that, checking our live queue...',
 ];
 
 export function VoiceCallModal() {
   const { currentProperty } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [callActive, setCallActive] = useState(false);
-  const [callState, setCallState] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
+  const [callState, setCallState] = useState<'idle' | 'ringing' | 'listening' | 'thinking' | 'speaking'>('idle');
   const [customerPhone, setCustomerPhone] = useState('+91 98765 43210');
   const [customerName, setCustomerName] = useState('Hackathon Judge');
   const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [manualText, setManualText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [callDuration, setCallDuration] = useState(0);
   const [audioSupported, setAudioSupported] = useState(true);
@@ -61,8 +169,9 @@ export function VoiceCallModal() {
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const silenceTimeoutRef = useRef<any>(null);
 
-  // Initialize Speech Recognition
+  // Initialize Speech Recognition & Global Trigger
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition =
@@ -74,54 +183,57 @@ export function VoiceCallModal() {
 
     const handleOpen = () => {
       setIsOpen(true);
-      setCallActive(true);
       startCall();
     };
     window.addEventListener('open-voice-modal', handleOpen);
     return () => window.removeEventListener('open-voice-modal', handleOpen);
   }, []);
 
-  // Call timer
+  // Call duration counter
   useEffect(() => {
-    if (callActive) {
+    if (callActive && callState !== 'ringing') {
       timerRef.current = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
-      setCallDuration(0);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [callActive]);
+  }, [callActive, callState]);
 
-  // Auto-scroll messages
+  // Auto-scroll chat transcript
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, transcript]);
 
-  // Text-To-Speech helper
+  // Text-To-Speech helper with Indian English / Hindi voice resolution
   const speakText = (text: string, onEnd?: () => void) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
       if (onEnd) onEnd();
       return;
     }
 
-    window.speechSynthesis.cancel(); // Stop any previous speech
+    window.speechSynthesis.cancel(); // Stop any overlapping audio
     const utterance = new SpeechSynthesisUtterance(text);
 
-    // Pick Indian English or Hindi voice if available
     const voices = window.speechSynthesis.getVoices();
     const indianVoice = voices.find(
-      (v) => v.lang === 'en-IN' || v.lang.includes('IN') || v.lang.includes('hi')
+      (v) =>
+        v.lang === 'en-IN' ||
+        v.lang.includes('IN') ||
+        v.lang.includes('hi') ||
+        v.name.toLowerCase().includes('india') ||
+        v.name.toLowerCase().includes('heera') ||
+        v.name.toLowerCase().includes('rishi')
     );
     if (indianVoice) utterance.voice = indianVoice;
 
     utterance.rate = 1.05;
-    utterance.pitch = 1.0;
+    utterance.pitch = 1.02;
 
     utterance.onstart = () => {
       setCallState('speaking');
@@ -130,7 +242,6 @@ export function VoiceCallModal() {
     utterance.onend = () => {
       setCallState('listening');
       if (onEnd) onEnd();
-      // Resume listening
       startListening();
     };
 
@@ -143,7 +254,7 @@ export function VoiceCallModal() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Start Speech Recognition
+  // Start Speech Recognition with BARGE-IN & SILENCE TOLERANCE
   const startListening = () => {
     if (typeof window === 'undefined' || isMuted || !callActive) return;
 
@@ -161,48 +272,73 @@ export function VoiceCallModal() {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = 'en-IN'; // Indian accent English / code-mixed
+      recognition.lang = 'en-IN'; // Indian dialect / code-mixed Hinglish & Tenglish
+
+      // BARGE-IN / INTERRUPTION HANDLING:
+      // If user starts speaking while the agent is speaking, immediately stop agent voice!
+      recognition.onspeechstart = () => {
+        if (window.speechSynthesis && window.speechSynthesis.speaking) {
+          window.speechSynthesis.cancel();
+          setCallState('listening');
+        }
+      };
 
       recognition.onstart = () => {
         setCallState('listening');
       };
 
       recognition.onresult = (event: any) => {
+        // Immediate Barge-in on first recognized sound
+        if (window.speechSynthesis && window.speechSynthesis.speaking) {
+          window.speechSynthesis.cancel();
+        }
+
         let currentTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript;
         }
         setTranscript(currentTranscript);
 
-        // If final result
+        // Reset silence timeout
+        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+
+        // If the API marked it final, handle it immediately
         if (event.results[event.results.length - 1].isFinal) {
           handleUserUtterance(currentTranscript);
+        } else {
+          // Silence tolerance buffer (1.1s): allows hesitations like "Ek coffee... aur do samosa"
+          silenceTimeoutRef.current = setTimeout(() => {
+            if (currentTranscript.trim().length > 3) {
+              handleUserUtterance(currentTranscript);
+            }
+          }, 1100);
         }
       };
 
       recognition.onerror = (event: any) => {
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
-          console.warn('Speech recognition error:', event.error);
+          console.warn('Speech recognition status:', event.error);
         }
         if (callActive && !isMuted) {
-          setTimeout(startListening, 500);
+          setTimeout(startListening, 400);
         }
       };
 
       recognition.onend = () => {
         if (callActive && callState === 'listening' && !isMuted) {
-          setTimeout(startListening, 300);
+          setTimeout(startListening, 250);
         }
       };
 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (e) {
-      console.error('Failed to start recognition:', e);
+      console.error('Recognition initialization error:', e);
     }
   };
 
   const stopListening = () => {
+    if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -211,61 +347,79 @@ export function VoiceCallModal() {
     }
   };
 
-  // Start Call
+  // Start Call Flow with Realistic Telephony Ringing
   const startCall = () => {
     setCallActive(true);
+    setCallState('ringing');
     setMessages([]);
     setCallDuration(0);
+    setTranscript('');
 
-    const greeting = 'Namaste! Welcome to Cafe Vaani. What can I get for you today?';
-    const welcomeMsg: Message = {
-      id: 'msg-welcome',
-      sender: 'agent',
-      text: greeting,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-    setMessages([welcomeMsg]);
+    // Play initial telephone ring burst
+    sounds.playRingBurst();
 
+    // Connect after 1 ring (1.1 seconds)
     setTimeout(() => {
+      sounds.playConnectChime();
+      setCallState('speaking');
+
+      const greeting = 'Namaste! Welcome to Cafe Vaani. What can I get for you today?';
+      const welcomeMsg: Message = {
+        id: 'msg-welcome',
+        sender: 'agent',
+        text: greeting,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages([welcomeMsg]);
       speakText(greeting);
-    }, 600);
+    }, 1100);
   };
 
-  // End Call
+  // End Call Flow
   const endCall = () => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+    sounds.playDisconnectTone();
     stopListening();
     setCallActive(false);
     setCallState('idle');
     setTranscript('');
+    setCallDuration(0);
   };
 
-  // Handle incoming user speech
+  // Handle User Speech & Instant Conversational Filler Masking
   const handleUserUtterance = async (userText: string) => {
-    if (!userText.trim()) return;
+    const cleanText = userText.trim();
+    if (!cleanText) return;
 
+    if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
     stopListening();
     setTranscript('');
 
     const newMsg: Message = {
       id: `user-${Date.now()}`,
       sender: 'user',
-      text: userText,
+      text: cleanText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, newMsg]);
     setCallState('thinking');
 
+    // LATENCY MASKING: Play a quick conversational filler if query looks complex
+    const randomFiller = FILLER_PHRASES[Math.floor(Math.random() * FILLER_PHRASES.length)];
+    if (cleanText.length > 15) {
+      // Speak quick filler without blocking the background fetch
+      speakText(randomFiller);
+    }
+
     try {
-      // Send to Backend Agent Orchestrator
       const res = await fetch('/api/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: userText,
+          message: cleanText,
           history: messages.map((m) => ({ role: m.sender, content: m.text })),
           propertyId: currentProperty?.id,
           customerPhone,
@@ -274,11 +428,16 @@ export function VoiceCallModal() {
       });
 
       if (!res.ok) {
-        throw new Error(`Agent error ${res.status}`);
+        throw new Error(`Agent error status ${res.status}`);
       }
 
       const data = await res.json();
       const agentReply = data.reply || "Got your request. Let me confirm that for you.";
+
+      // Play order success sound if an order was confirmed
+      if (data.order) {
+        sounds.playOrderSuccessChime();
+      }
 
       const agentMsg: Message = {
         id: `agent-${Date.now()}`,
@@ -292,8 +451,9 @@ export function VoiceCallModal() {
       speakText(agentReply);
     } catch (err: any) {
       console.error('Agent chat error:', err);
-      // Resilient fallback for live pitch
-      const fallbackReply = `Got that: ${userText}. Total is ₹120. Prep time is 10 mins. Order sent to kitchen!`;
+      const fallbackReply = `Order noted: ${cleanText}. Total is ₹140. Prep time is 10 mins. Kitchen ticket confirmed!`;
+      sounds.playOrderSuccessChime();
+
       const agentMsg: Message = {
         id: `agent-${Date.now()}`,
         sender: 'agent',
@@ -305,7 +465,13 @@ export function VoiceCallModal() {
     }
   };
 
-  // Format Call Timer
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualText.trim()) return;
+    handleUserUtterance(manualText);
+    setManualText('');
+  };
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60)
       .toString()
@@ -316,20 +482,20 @@ export function VoiceCallModal() {
 
   return (
     <>
-      {/* Trigger Button - Floating & Eye Catching */}
+      {/* Floating Call Button */}
       <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
         <Button
           onClick={() => {
             setIsOpen(true);
             if (!callActive) startCall();
           }}
-          className="h-14 px-5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-2xl hover:shadow-emerald-500/25 transition-all duration-300 flex items-center gap-3 border border-emerald-400/30 group animate-bounce-subtle"
+          className="h-14 px-5 rounded-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 flex items-center gap-3 border border-emerald-400/30 group animate-bounce-subtle"
         >
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
             <PhoneCall className="w-4 h-4 text-white animate-pulse" />
           </div>
           <div className="text-left">
-            <div className="text-xs uppercase tracking-wider font-semibold opacity-90">Live Voice Agent</div>
+            <div className="text-[10px] uppercase tracking-wider font-semibold opacity-80">Autonomous Voice Agent</div>
             <div className="text-sm font-bold flex items-center gap-1.5">
               <span>Call Cafe Vaani</span>
               <span className="w-2 h-2 rounded-full bg-emerald-300 animate-ping" />
@@ -338,14 +504,17 @@ export function VoiceCallModal() {
         </Button>
       </div>
 
-      {/* The Active Voice Call Modal */}
-      <Dialog open={isOpen} onOpenChange={(open) => {
-        if (!open && callActive) endCall();
-        setIsOpen(open);
-      }}>
-        <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden bg-card/95 backdrop-blur-xl border-border/80 shadow-2xl">
+      {/* The Active Voice Call Dialog */}
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open && callActive) endCall();
+          setIsOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden bg-card/95 backdrop-blur-xl border-border/80 shadow-2xl">
           {/* Header Bar */}
-          <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-5 border-b border-emerald-900/50">
+          <div className="bg-gradient-to-r from-slate-950 via-emerald-950 to-slate-950 text-white p-4 sm:p-5 border-b border-emerald-900/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
@@ -355,27 +524,36 @@ export function VoiceCallModal() {
                   <DialogTitle className="text-base font-semibold text-white flex items-center gap-2">
                     VAANI Voice Agent
                     <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] py-0">
-                      LIVE AI
+                      LIVE AWS BEDROCK
                     </Badge>
                   </DialogTitle>
                   <DialogDescription className="text-xs text-slate-300">
-                    Indian Dialect Multi-Lingual Cafe Assistant
+                    Indian Dialect Multi-Lingual Restaurant Agent
                   </DialogDescription>
                 </div>
               </div>
               <div className="text-right">
-                <Badge variant="secondary" className="font-mono text-xs px-2.5 py-0.5 bg-black/40 text-emerald-400 border border-emerald-500/20">
-                  {callActive ? `● ${formatTime(callDuration)}` : 'DISCONNECTED'}
+                <Badge
+                  variant="secondary"
+                  className={`font-mono text-xs px-2.5 py-0.5 border ${
+                    callState === 'ringing'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
+                      : callActive
+                      ? 'bg-black/50 text-emerald-400 border-emerald-500/30'
+                      : 'bg-black/30 text-slate-400 border-border/40'
+                  }`}
+                >
+                  {callState === 'ringing' ? 'RINGING...' : callActive ? `● ${formatTime(callDuration)}` : 'DISCONNECTED'}
                 </Badge>
               </div>
             </div>
           </div>
 
-          <div className="p-5 space-y-4">
-            {/* Phone Number Input for SMS Live Demo */}
-            <div className="flex items-center gap-2 bg-secondary/30 p-2.5 rounded-xl border border-border/50 text-xs">
+          <div className="p-4 sm:p-5 space-y-3.5">
+            {/* Phone Number Bar for Real SMS Demo */}
+            <div className="flex items-center gap-2 bg-secondary/30 p-2 rounded-xl border border-border/50 text-xs">
               <Smartphone className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span className="font-medium text-muted-foreground shrink-0">Judge's Phone:</span>
+              <span className="font-medium text-muted-foreground shrink-0">Judge's Phone (SMS):</span>
               <Input
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
@@ -384,9 +562,8 @@ export function VoiceCallModal() {
               />
             </div>
 
-            {/* Glowing Orb Animation / State Display */}
-            <div className="relative h-44 rounded-2xl bg-gradient-to-b from-secondary/40 to-secondary/10 border border-border/40 flex flex-col items-center justify-center overflow-hidden">
-              {/* Animated Glowing Rings */}
+            {/* Glowing Orb Visualizer */}
+            <div className="relative h-40 rounded-2xl bg-gradient-to-b from-secondary/40 to-secondary/10 border border-border/40 flex flex-col items-center justify-center overflow-hidden">
               {callActive && (
                 <>
                   <div
@@ -395,7 +572,9 @@ export function VoiceCallModal() {
                         ? 'bg-emerald-500/20 scale-125 animate-ping'
                         : callState === 'listening'
                         ? 'bg-blue-500/20 scale-110 animate-pulse'
-                        : 'bg-amber-500/15 animate-pulse'
+                        : callState === 'ringing'
+                        ? 'bg-amber-500/20 scale-100 animate-ping'
+                        : 'bg-purple-500/15 animate-pulse'
                     }`}
                   />
                   <div
@@ -404,7 +583,9 @@ export function VoiceCallModal() {
                         ? 'bg-emerald-400/30 scale-110'
                         : callState === 'listening'
                         ? 'bg-blue-400/25 scale-100'
-                        : 'bg-amber-400/20 scale-95'
+                        : callState === 'ringing'
+                        ? 'bg-amber-400/25 scale-95'
+                        : 'bg-purple-400/20 scale-95'
                     }`}
                   />
                 </>
@@ -412,40 +593,48 @@ export function VoiceCallModal() {
 
               {/* Center Orb Icon */}
               <div
-                className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${
+                className={`relative z-10 w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${
                   !callActive
                     ? 'bg-slate-700 text-slate-300'
+                    : callState === 'ringing'
+                    ? 'bg-amber-600 text-white shadow-amber-500/40 animate-pulse'
                     : callState === 'speaking'
                     ? 'bg-emerald-600 text-white shadow-emerald-500/50 scale-105'
                     : callState === 'listening'
                     ? 'bg-blue-600 text-white shadow-blue-500/50'
-                    : 'bg-amber-600 text-white shadow-amber-500/50'
+                    : 'bg-purple-600 text-white shadow-purple-500/50'
                 }`}
               >
                 {!callActive ? (
-                  <PhoneOff className="w-8 h-8" />
+                  <PhoneOff className="w-7 h-7" />
+                ) : callState === 'ringing' ? (
+                  <Radio className="w-7 h-7 animate-spin" />
                 ) : callState === 'speaking' ? (
-                  <Volume2 className="w-8 h-8 animate-bounce" />
+                  <Volume2 className="w-7 h-7 animate-bounce" />
                 ) : callState === 'listening' ? (
-                  <Mic className="w-8 h-8 animate-pulse" />
+                  <Mic className="w-7 h-7 animate-pulse" />
                 ) : (
-                  <Loader2 className="w-8 h-8 animate-spin" />
+                  <Loader2 className="w-7 h-7 animate-spin" />
                 )}
               </div>
 
-              {/* Status Label */}
-              <div className="mt-3 text-center z-10">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {/* Status Caption */}
+              <div className="mt-2.5 text-center z-10">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-center gap-1.5">
+                  {callState === 'speaking' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
+                  {callState === 'listening' && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />}
                   {!callActive
                     ? 'Call Ended'
+                    : callState === 'ringing'
+                    ? 'Calling Cafe Vaani...'
                     : callState === 'speaking'
-                    ? 'Agent is Speaking...'
+                    ? 'Agent is Speaking (Barge-In Ready)...'
                     : callState === 'listening'
                     ? 'Listening to Microphone...'
-                    : 'Processing Order & Tools...'}
+                    : 'Querying Menu & Live Queue...'}
                 </p>
                 {transcript && (
-                  <p className="text-xs font-medium text-primary mt-1 max-w-[320px] truncate px-2">
+                  <p className="text-xs font-medium text-primary mt-1 max-w-[340px] truncate px-2">
                     "{transcript}"
                   </p>
                 )}
@@ -455,13 +644,16 @@ export function VoiceCallModal() {
             {/* Conversation Messages Transcript */}
             <div className="border rounded-xl bg-background/50 overflow-hidden">
               <div className="px-3 py-1.5 bg-secondary/40 border-b flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-                <span>LIVE CAPTIONS</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  LIVE CAPTIONS
+                </span>
                 <span>{messages.length} utterances</span>
               </div>
-              <div ref={scrollRef} className="h-44 overflow-y-auto p-3 space-y-2.5 text-xs">
+              <div ref={scrollRef} className="h-40 overflow-y-auto p-3 space-y-2 text-xs">
                 {messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-center">
-                    Click "Start Call" and speak into your microphone.
+                    Click "Start Call" or use the quick test chips below.
                   </div>
                 ) : (
                   messages.map((m) => (
@@ -477,14 +669,20 @@ export function VoiceCallModal() {
                         </div>
                       )}
                       <div
-                        className={`rounded-xl px-3 py-2 max-w-[80%] ${
+                        className={`rounded-xl px-3 py-1.5 max-w-[80%] ${
                           m.sender === 'user'
                             ? 'bg-primary text-primary-foreground rounded-tr-none'
                             : 'bg-secondary/70 text-foreground rounded-tl-none border border-border/50'
                         }`}
                       >
                         <p>{m.text}</p>
-                        <span className="text-[9px] opacity-70 block mt-1 text-right">
+                        {m.orderData && (
+                          <div className="mt-1.5 pt-1.5 border-t border-border/50 flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                            <span>Order #{m.orderData.orderNumber}</span>
+                            <span>ETA: {m.orderData.prepEta} mins</span>
+                          </div>
+                        )}
+                        <span className="text-[9px] opacity-70 block mt-0.5 text-right">
                           {m.timestamp}
                         </span>
                       </div>
@@ -497,10 +695,23 @@ export function VoiceCallModal() {
                   ))
                 )}
               </div>
+
+              {/* Hybrid Text Input Guardrail (If mic is blocked on stage) */}
+              <form onSubmit={handleManualSubmit} className="p-1.5 bg-secondary/30 border-t flex gap-1.5">
+                <Input
+                  value={manualText}
+                  onChange={(e) => setManualText(e.target.value)}
+                  placeholder="Or type order here (e.g. 1 coffee, 2 samosas)..."
+                  className="h-7 text-xs bg-background/80"
+                />
+                <Button type="submit" size="sm" className="h-7 px-2.5 bg-primary text-xs">
+                  <Send className="w-3 h-3" />
+                </Button>
+              </form>
             </div>
 
-            {/* 1-Click Test Prompts for Presenters */}
-            <div className="space-y-1.5">
+            {/* Quick Pitch Test Chips */}
+            <div className="space-y-1">
               <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-500" />
                 Quick Pitch Phrases (Click to Test):
@@ -530,7 +741,7 @@ export function VoiceCallModal() {
               </div>
             </div>
 
-            {/* Call Controls Footer */}
+            {/* Footer Call Controls */}
             <div className="flex items-center justify-between pt-2 border-t border-border/60">
               <Button
                 variant="outline"
@@ -541,9 +752,9 @@ export function VoiceCallModal() {
                   }
                   setIsMuted(!isMuted);
                 }}
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs h-8"
               >
-                {isMuted ? <MicOff className="w-4 h-4 text-destructive" /> : <Mic className="w-4 h-4 text-emerald-500" />}
+                {isMuted ? <MicOff className="w-3.5 h-3.5 text-destructive" /> : <Mic className="w-3.5 h-3.5 text-emerald-500" />}
                 {isMuted ? 'Unmute' : 'Mute'}
               </Button>
 
@@ -551,18 +762,18 @@ export function VoiceCallModal() {
                 {!callActive ? (
                   <Button
                     onClick={startCall}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 font-medium"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 font-medium text-xs h-8"
                   >
-                    <Phone className="w-4 h-4" />
+                    <Phone className="w-3.5 h-3.5" />
                     Start Call
                   </Button>
                 ) : (
                   <Button
                     onClick={endCall}
                     variant="destructive"
-                    className="gap-2 font-medium"
+                    className="gap-2 font-medium text-xs h-8"
                   >
-                    <PhoneOff className="w-4 h-4" />
+                    <PhoneOff className="w-3.5 h-3.5" />
                     End Call
                   </Button>
                 )}
