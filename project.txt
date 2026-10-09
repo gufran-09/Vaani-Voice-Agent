@@ -1,0 +1,619 @@
+VAANI — Complete End-to-End Implementation Plan
+Product strategy · Architecture · Database · Security · AI · AWS · Restaurant operations · Deployment · Testing · Commercial rollout
+VAANI should be developed as a production-oriented hospitality operations platform, starting with a real-world pilot at the popular cafe in Agra and eventually expanding to restaurants, bakeries, cloud kitchens, hotels, resorts, and multi-location hospitality businesses.
+The objective is not merely to build a voice chatbot or an attractive dashboard. The objective is to build a system that can reliably support daily restaurant operations, integrate with existing workflows, protect business data, and demonstrate measurable value to the cafe owner.
+There is one important distinction at the outset: VAANI has completed its local foundation and security-audit milestones, but it is not production-ready. The plan below continues from the reported Milestone 3B.2 state rather than assuming the application already has real AI, production authentication, a PostgreSQL database, or live integrations.
+1. Product vision and scope
+
+
+
+
+
+
+
+roastea.in
+
+
+VAANI: The intelligent operations layer for hospitality
+VAANI connects customer requests, ordering, kitchen execution, staff workflows, and management reporting through a shared operational system.Voice ordering
+Understand customer requests, clarify choices, and confirm orders.
+
+
+Kitchen operations
+Order queue, preparation status, and estimated readiness.
+
+
+Menu and inventory
+Item availability, pricing, stock tracking, and wastage.
+
+
+Management intelligence
+Sales, popular items, service performance, and actionable reports.
+
+
+
+
+Product principles
+1. Operations first, AI second. An order must remain correct even when the AI provider is unavailable.
+2. PostgreSQL is the source of truth. A language model must never decide authoritative prices, stock, payment status, or permissions.
+3. Human confirmation for consequential actions. Customers or authorized staff must confirm orders and other important changes.
+4. Tenant isolation by design. One cafe must never see another business's orders, menu, guests, or analytics.
+5. Local development first. Do not deploy AWS resources or activate paid services until the architecture and cost review is approved.
+6. Measure real value. Separate live operational data from simulations and measure outcomes during the cafe pilot.
+2. Define the first release: what exactly are we building?
+The biggest risk is trying to build voice AI, inventory, payments, hotel management, WhatsApp automation, and analytics simultaneously. VAANI needs a well-defined first release.
+
+Release 1 — Cafe operations MVP
+Build first
+- Secure owner and staff access
+- Menu and availability management
+- Customer order creation and confirmation
+- Kitchen display and status transitions
+- Basic stock tracking
+- Guest requests and service issues
+- Actual operational dashboard
+- Persistent database, audit trail, and recovery
+
+
+
+
+Release 2 — AI-assisted ordering
+- Real language-model integration
+- Speech-to-text and text-to-speech
+- Natural-language menu discovery
+- Hindi and English support, with additional languages tested before launch
+- Clear read-back and customer confirmation
+- Human fallback when confidence is insufficient
+
+
+
+
+Release 3 — Customer channels and automation
+- Telephony or website voice ordering
+- Approved messaging and order notifications
+- Payment-provider integration
+- Reservations and external POS integration where needed
+- Automated reporting and operational alerts
+
+
+
+
+Release 4 — Hospitality expansion
+- Multiple branches and property management
+- Hotel guest requests and service assignment
+- PMS integration
+- Cross-property analytics and configurable workflows
+
+
+
+For the Agra cafe, do not require all four releases before demonstrating value. Release 1 should already make sense to a cafe owner without the AI component.
+3. Recommended technology stack
+Use technologies that support reliable operations and let you move from local development to managed hosting without rewriting the business logic.
+Layer	Recommended technology	Purpose
+Frontend	Existing React/Vite application, TypeScript where practical	Owner dashboard, staff UI, kitchen display
+Backend	Existing Node.js API, retaining the current framework	Authentication, orders, validation, integrations
+Primary database	PostgreSQL	Orders, menu, users, stock, audit records
+Local database	PostgreSQL via local installation or Docker	Real database testing without cloud spending
+Production database	Amazon RDS for PostgreSQL, subject to cost review	Managed relational database
+Authentication	A production-grade identity provider or securely implemented server-side auth	Identity, sessions, roles
+AI orchestration	Provider abstraction in the backend	Model-independent AI integration
+Speech	Streaming or request-based speech recognition and synthesis providers	Voice input and responses
+Event processing	PostgreSQL transactional outbox initially; managed queue later if justified	Reliable asynchronous work
+File storage	S3 when required	Images, approved recordings, exports
+Monitoring	Structured application logs, metrics, alerts	Diagnostics and operational visibility
+Infrastructure	Existing AWS CDK code, reviewed before deployment	Repeatable infrastructure
+Testing	Existing automated suite plus API, database, concurrency and browser tests	Regression and release confidence
+Why PostgreSQL instead of starting with DynamoDB? VAANI's core entities are strongly relational: orders have line items, users have memberships, menu items have prices, and inventory movements have history. PostgreSQL provides transactions, foreign keys, unique constraints, and SQL reporting that suit those requirements.
+DynamoDB may be useful later for specific high-volume key-value workloads, but it is not required for the initial cafe product.
+Architectural rule
+The frontend must never call an AI provider directly with privileged credentials. All business-changing requests go through the backend, where authorization, validation, price calculation, stock checks, and order state transitions are enforced.
+4. End-to-end system architecture
+Customer and staff channels
+Owner console · Staff interface · Kitchen display · Web ordering · Later, phone and messaging
+
+Backend API
+Authentication · Tenant authorization · Validation · Order service · Reporting
+
+AI adapters
+LLM · Speech · Telephony
+
+
+Worker layer
+Notifications · Outbox · Retries
+
+
+
+PostgreSQL — operational source of truth
+Transactional records · Idempotency · Audit history · Outbox
+
+The AI and worker layers depend on the backend and persisted state; neither is allowed to bypass the business rules.
+
+How a real order should flow
+1. Customer speaks or types an order.
+2. Speech recognition, if used, converts the audio to text.
+3. The AI interprets the request and returns structured candidate items, quantities, options, and clarification questions.
+4. The backend resolves candidate items against the actual menu, checks current availability, validates options, and calculates prices from trusted database records.
+5. VAANI reads back the order, including any substitutions and the final total.
+6. The customer explicitly confirms the order.
+7. A database transaction records the order, order items, idempotency key, and required outbox event.
+8. The kitchen display receives the persisted order and staff update its preparation status.
+9. Notifications are processed asynchronously and retried if delivery fails.
+10. The dashboard reports the order using persisted records, not model-generated estimates.
+If the model is unavailable, the menu/order service must still support manual operation. If the database write fails, VAANI must not tell the customer that an order was successfully placed.
+5. Database implementation plan
+This is one of the most important parts of the project. The current JSON repository should be retained only as a development artifact or fixture—not as the production persistence layer.
+5.1 Design the schema
+Start with these logical tables. Exact columns and constraints should be defined during the migration milestone.
+Domain	Tables	Important considerations
+Tenant and access	organizations, properties, users, memberships	Every property belongs to a tenant; staff access is explicit
+Menu	menu_categories, menu_items, menu_item_options	Store prices as integer paise, not floating-point numbers
+Inventory	inventory_items, stock_movements, recipe_components	Track changes rather than merely overwriting quantities
+Ordering	orders, order_items, order_status_history	Preserve price snapshots and state history
+Kitchen	kitchen_tickets, kitchen_ticket_items	Support preparation queues and station assignment
+Payments	payments, payment_events	Store provider references and status, never raw card credentials
+Guests	guest_requests, guest_request_assignments	Track assignee, status, timestamps and resolution
+Reliability	idempotency_records, outbox_events	Prevent duplicate operations and recover missed work
+Governance	audit_logs, notification_attempts	Record important changes and delivery outcomes
+For future multi-property operations, include organization_id and property_id wherever the data belongs to a particular business or location. Enforce tenant/property authorization in the service layer and reinforce it with database constraints where appropriate.
+5.2 Model order status explicitly
+Use a controlled state machine rather than accepting arbitrary status strings.
+Draft / Awaiting confirmation
+Confirmed
+Accepted by kitchen
+Preparing → Ready
+Served / Collected → Completed
+Cancellation, rejection and failure transitions must be defined separately with permission checks and audit records.
+
+Payment status should be a separate state machine. An order marked completed is not automatically a successfully paid order, and a payment callback must not be trusted without verifying its source and transaction reference.
+5.3 Migrate in a controlled way
+1. Introduce PostgreSQL migrations and a versioned schema.
+2. Implement a PostgreSQL repository that conforms to the existing repository interface.
+3. Add seed scripts for the fictional cafe and synthetic test records.
+4. Move order creation and confirmation to explicit database transactions.
+5. Enforce uniqueness for idempotency within the correct tenant and operation scope.
+6. Add concurrent-request and rollback tests against real PostgreSQL.
+7. Test process restarts, database connection failures, and recovery.
+8. Make PostgreSQL the default for production; never silently fall back to JSON when a production database is unavailable.
+Keep the development adapter only if it remains useful and clearly separated from production configuration.
+6. Authentication, authorization and security
+The Milestone 3B.2 audit established that development login and JSON persistence are still blockers. Address them before exposing VAANI to a real cafe network.
+6.1 User roles
+Define roles with explicit permissions rather than giving every logged-in user administrative access.
+Role	Typical permissions
+Owner	Business settings, staff access, menu, reports, all authorized operations
+Manager	Menu, inventory, orders, staff operations and operational reports
+Cashier / Front desk	Order creation, order lookup, permitted payment operations
+Kitchen staff	Kitchen queue, preparation status, relevant item notes
+Service staff	Assigned guest requests and service updates
+System worker	Only the scoped permissions needed for background processing
+Permissions should be configurable enough for the cafe's workflow, but do not build an overly complicated policy engine before the pilot.
+6.2 Required protections
+- Real authentication; production must never accept arbitrary passwords.
+- Session expiration, logout, server-side revocation and secure cookies.
+- CSRF protection for cookie-authenticated state-changing requests.
+- Rate limiting for login and sensitive endpoints.
+- Server-side tenant/property checks on every relevant API request.
+- Input validation and safe output handling.
+- Secret management outside source control.
+- Audit records for menu changes, cancellations, inventory adjustments and permissions changes.
+- Restricted staff access to customer information.
+- Data retention and deletion policies appropriate to the information collected.
+Use synthetic data for development. If real customer data is introduced during a pilot, establish access, retention, privacy, and incident-handling procedures first.
+7. AI and voice implementation
+VAANI should use AI as a conversational interface to deterministic business services—not as the system that owns the restaurant's business rules.
+7.1 Implement the AI in stages
+1. Structured intent extraction: Turn requests into a schema such as items, quantities, options, language, and clarification requirements.
+2. Menu grounding: Resolve extracted items against active menu records. Unknown items and unsupported customizations must trigger clarification.
+3. Business tool calls: Allow the model to request read-only menu searches and other approved operations through validated backend tools.
+4. Deterministic validation: Backend code calculates the final price, checks stock, enforces permissions, and validates the state transition.
+5. Explicit confirmation: Show or read back the exact items, quantity, options, and total before creating the confirmed order.
+6. Safe fallback: If confidence is insufficient, the provider fails, or the request is ambiguous, route the customer to manual interaction.
+Do not let an LLM directly execute SQL, modify inventory, set prices, mark payments as complete, or confirm an order without the required authorization and confirmation checks.
+7.2 Voice pipeline
+Microphone / phone audio
+Speech-to-text
+Language and intent interpretation
+Menu lookup and deterministic order validation
+Read-back and explicit customer confirmation
+Transactional order creation
+
+7.3 Language and quality testing
+For a cafe in Agra, begin by testing English and Hindi, including natural code-switching where customers mix languages. Do not assume a provider supports every language equally well in every region or streaming mode.
+Create a test set containing:
+- Common menu item names and local pronunciations.
+- Different quantities and customization requests.
+- Background noise typical of a busy cafe.
+- Similar-sounding menu items.
+- Requests for unavailable items.
+- Corrections such as changing quantity after an initial request.
+- Interruptions, silence, poor network conditions, and provider timeouts.
+- Attempts to place an order without confirmation.
+Measure transcription accuracy, correct item matching, successful order completion, clarification frequency, response latency, and cost per completed order. A fluent-sounding response is not enough; order correctness is the critical metric.
+8. Kitchen operations, inventory and reporting
+Kitchen display
+The kitchen screen should show:
+- Order number and order age.
+- Items, quantities, customizations and allergy-related notes where safely supported.
+- Time of confirmation and target readiness.
+- Preparation status and assigned station if applicable.
+- Priority indicators and overdue orders.
+- A clear visual difference between new, preparing, ready, and cancelled orders.
+Use database-backed state changes and a real-time update mechanism such as WebSockets or server-sent events when needed. The UI must recover after a disconnection and reload the authoritative state from the server.
+Inventory
+Do not start with an elaborate procurement and warehouse system. Begin with a useful cafe-level inventory workflow:
+1. Record ingredients or tracked menu items.
+2. Record stock receipts and adjustments.
+3. Track wastage and manual corrections with reasons.
+4. Allow recipe-based stock deductions only after recipes and portion sizes are configured.
+5. Prevent overselling where stock is explicitly controlled.
+6. Alert staff when thresholds are reached.
+If the cafe only tracks availability at the menu-item level initially, implement that honestly. Ingredient-level inventory requires reliable recipes, portion definitions, and operational discipline.
+Dashboard
+Only show metrics derived from real persisted data when the data exists.
+Recommended initial metrics:
+- Orders placed and completed.
+- Gross sales from recorded orders.
+- Paid revenue from verified payment records.
+- Average order value.
+- Most ordered menu items.
+- Cancellation and refund rates, when implemented.
+- Preparation time from timestamped status transitions.
+- Availability and stock-out events.
+Define how each metric is calculated. Exclude unpaid, cancelled, refunded, or incomplete orders according to a documented business rule. Mark any synthetic data visibly.
+9. Event delivery and background workers
+Once orders are persisted, VAANI needs a reliable mechanism to deliver downstream work such as kitchen updates, customer notifications, and reporting events.
+Implement the transactional outbox pattern:
+1. Write the business change and its outbox event in the same PostgreSQL transaction.
+2. A worker claims pending events.
+3. It sends or processes the event.
+4. It records success or schedules a retry with backoff.
+5. After a defined number of failures, it marks the event for investigation or dead-letter handling.
+6. Processing is idempotent so a repeated event does not create duplicate orders or notifications.
+Use appropriate locking or claim semantics when multiple workers operate concurrently. Record attempt counts, timestamps, and sanitized error details.
+For the first deployment, PostgreSQL-backed outbox processing can reduce architectural complexity. Introduce SQS or EventBridge later when operational needs justify them. A queue does not replace database transaction safety or idempotent consumers.
+10. AWS architecture and deployment strategy
+The current CDK project is a useful starting point, but synthesis is not equivalent to a successful deployment. Review each resource, its regional availability, permissions, pricing, and network dependencies before using it.
+Target architecture, subject to review
+Frontend
+Static hosting through S3 and CloudFront, or another suitable hosting arrangement.
+
+Backend
+A suitable managed compute service with health checks, secure configuration and logging.
+
+Relational database
+Amazon RDS for PostgreSQL with controlled network access, backups and recovery procedures.
+
+Security and operations
+IAM least privilege, Secrets Manager where appropriate, CloudWatch monitoring, budgets and alerts.
+
+Optional asynchronous services
+SQS, EventBridge, S3, AI services, and telephony only where justified and verified.
+
+
+AWS region decision
+Do not select a region just because it is geographically closest. Earlier VAANI research identified service-availability limitations for some voice services in Mumbai and potential cross-border processing considerations in Oregon.
+Before choosing a region:
+- Verify each required service and exact API feature in that region.
+- Confirm account-level service access, quotas, and model availability.
+- Evaluate latency for the cafe's customers and staff.
+- Document data-residency and privacy implications.
+- Calculate the full cost, including compute, database, storage, networking, logging, AI usage, and telephony.
+Cost-control gate
+The US$25/month figure is a planning ceiling, not a guarantee. The earlier estimate for an Aurora writer/reader configuration already exceeded it before other infrastructure costs.
+For now:
+- Keep the application and PostgreSQL local.
+- Do not deploy Aurora, NAT gateways, production telephony, or customer-facing traffic.
+- Avoid a continuously running managed database until the cost is explicitly approved.
+- Use AWS Budgets as an alerting mechanism, not as a hard spending cap.
+- Review the proposed architecture and estimated bill before any deployment.
+Only after approval should you perform a small, isolated deployment test with synthetic traffic and a documented teardown procedure.
+11. External integrations
+Integrations should be independent modules, not tightly coupled throughout the application. Every provider must have an explicit configuration state and a testable failure path.
+Integration	Purpose	Implementation order
+LLM provider	Interpret customer requests	First AI integration
+Speech-to-text	Convert speech to text	After structured ordering works
+Text-to-speech	Speak responses	After language and menu tests
+Telephony	Handle inbound and outbound calls	After voice pipeline is stable
+Messaging provider	Order confirmations and service notifications	After outbox reliability
+Payment provider	Collect and verify payment	After order/payment state separation
+POS system	Synchronize existing cafe orders	After the cafe's actual POS is identified
+Hotel PMS	Guest services and property workflows	Later hospitality expansion
+Before integrating a payment or POS provider, determine whether the cafe already uses a system that must remain authoritative. Avoid building a second conflicting order ledger. Define how refunds, cancellations, duplicate webhooks, partial failures, and reconciliation will work.
+Do not store raw card numbers or security codes. Payment status must be based on verified provider events, not customer claims or model responses.
+12. Observability, backups and operational reliability
+A restaurant system must fail predictably during peak hours.
+Required operational controls
+- Health and readiness endpoints.
+- Structured logs with request and correlation IDs.
+- Error tracking and alerts for repeated failures.
+- Database connection monitoring and migration tracking.
+- Metrics for order creation failures, latency, worker backlog, notification retries, and provider errors.
+- Automated backups and a tested restoration procedure.
+- Least-privilege access to production systems.
+- Documented incident and recovery procedures.
+- A manual ordering fallback when voice or AI is unavailable.
+Define recovery objectives before production. For example, the cafe owner should explicitly approve how much data loss is acceptable and how quickly the service must recover after a failure. Then configure backups and test whether those objectives can actually be met.
+Never log passwords, session tokens, API secrets, payment credentials, or full sensitive customer conversations unnecessarily.
+13. Complete implementation roadmap
+The following order builds on the existing milestones and keeps risky integrations behind explicit readiness gates.
+Estimates are planning ranges for a focused development effort, not commitments. Actual duration depends on the existing repository, integration complexity and testing.
+1
+
+Milestone 3C — Authentication and session security
+3–5 days
+Production authentication mode, session lifecycle, logout/revocation, CSRF protection, rate limiting, and authorization regression tests.
+Exit gate: production mode cannot start with insecure development authentication.
+
+
+
+2
+
+Milestone 3D — PostgreSQL migration
+4–7 days
+Schema, migrations, repository implementation, constraints, tenant-scoped queries, transactions, idempotency, and concurrent database tests.
+Exit gate: order persistence and rollback are verified against PostgreSQL.
+
+
+
+3
+
+Milestone 3E — Outbox and durable processing
+3–5 days
+Transactional outbox, workers, retry/backoff, deduplication, recovery and dead-letter handling.
+Exit gate: failures and restarts do not silently lose required work.
+
+
+
+4
+
+Milestone 3F — Cafe operations MVP
+5–8 days
+Refine menu, orders, kitchen display, stock availability, staff roles, guest requests and real dashboard metrics.
+Exit gate: an owner can demonstrate a complete manual order-to-kitchen workflow.
+
+
+
+5
+
+Milestone 4 — Real LLM integration
+3–6 days
+Provider adapter, structured extraction, menu grounding, tool validation, timeouts, retries, and model-failure fallback.
+Exit gate: AI suggestions cannot bypass backend business rules.
+
+
+
+6
+
+Milestone 5 — Speech and multilingual ordering
+5–10 days
+Speech-to-text, text-to-speech, Hindi/English evaluation, noisy-environment tests, confirmation, and human fallback.
+Exit gate: agreed accuracy and latency targets are met on a representative test set.
+
+
+
+7
+
+Milestone 6 — Deployment readiness
+3–6 days
+Infrastructure review, cost estimate, secrets, TLS, monitoring, backup/restore test, operational documentation and staging deployment after approval.
+Exit gate: security and operational checklists pass.
+
+
+
+8
+
+Milestone 7 — Controlled cafe pilot
+1–2 weeks
+Staff onboarding, limited operational use, feedback, failure tracking, reconciliation, and measured evaluation.
+Exit gate: the owner approves expansion based on real results.
+
+
+
+These estimates suggest roughly 5–9 weeks of focused implementation plus the pilot, with overlap possible. They exclude major unforeseen provider limitations, new POS integrations, and delays caused by account access or business decisions. Do not commit to a public production date until the first three milestones reveal the actual scope.
+14. Testing strategy and release gates
+A green test suite is necessary, but it is not sufficient. Maintain distinct testing layers.
+Test layer	What it must prove
+Unit tests	Pricing, quantity validation, state transitions and stock rules
+API tests	Authentication, permissions, request validation and error responses
+Database integration tests	Transactions, rollback, constraints, migrations and restart persistence
+Concurrency tests	Duplicate confirmation and conflicting stock/order updates
+Tenant isolation tests	No cross-tenant reads or writes through any route
+AI evaluation tests	Correct menu grounding, clarification and refusal of unsupported actions
+Speech tests	Language, noise, interruption, latency and transcription quality
+Worker tests	Retry, duplicate delivery, crashes and recovery
+Security tests	Session, CSRF, rate limiting, secrets and authorization
+End-to-end tests	Customer order through kitchen completion and dashboard reporting
+Recovery tests	Backup restoration and service recovery against approved objectives
+Release gates
+- Local demonstration: synthetic data, existing regression tests, no production claims.
+- Internal staging: secure authentication, PostgreSQL, durable processing, secrets management and operational monitoring.
+- Limited cafe pilot: verified backup/restore, staff training, documented fallback, reconciliation, and explicit owner approval.
+- Production rollout: acceptance criteria, security review, cost approval, support plan, incident process, and privacy/data-retention procedures.
+Keep the existing 15-test Milestone 3B.2 suite as the regression baseline. Add new tests rather than replacing tests that previously caught security defects.
+15. How to run the Agra cafe pilot
+The first pilot should prove that VAANI improves a real workflow without disrupting the cafe's existing business.
+Phase A — Discovery before implementation
+Meet the owner or operations manager and document:
+- How customers currently place orders.
+- Whether orders are dine-in, takeaway, delivery, or a combination.
+- How staff handle menu changes, sold-out items and customizations.
+- Whether a POS or billing system already exists.
+- How kitchen staff receive and update orders.
+- Whether ingredient-level inventory is maintained.
+- Which languages customers use most frequently.
+- How payments, refunds, cancellations and receipts are handled.
+- What the owner considers the biggest operational problem.
+Do not assume the cafe wants to replace its existing POS. VAANI may initially complement it.
+Phase B — Demonstrate the product
+Use the cafe's approved menu and synthetic transactions to demonstrate:
+1. Owner signs in and updates menu availability.
+2. Customer places a test order.
+3. VAANI validates the order and calculates its total.
+4. Customer confirms the order.
+5. Kitchen receives and updates the order.
+6. Staff mark the order ready and completed.
+7. The dashboard reflects the persisted transaction.
+8. The owner reviews order history and an audit record.
+Then demonstrate failure handling: unavailable item, invalid request, duplicate confirmation, database interruption, and unavailable AI provider.
+Phase C — Limited operational use
+Only after the cafe approves the deployment and operating procedures should VAANI handle real orders.
+Start with one property, a limited menu or channel, trained staff, a manual fallback, and explicit rules for reconciliation with the cafe's existing billing system.
+Do not make AI voice ordering the only way to place an order. Staff must be able to continue operations if speech recognition, the LLM, networking, or notifications fail.
+Phase D — Measure results
+Establish a baseline before claiming improvements.
+Metric	What to compare
+Order entry time	Time to record a correct order before vs. after
+Order accuracy	Incorrect items, quantities and customizations
+Order completion	Percentage of accepted orders completed correctly
+Preparation time	Median and 90th-percentile time, using consistent definitions
+Stock-out handling	Orders attempted for unavailable items
+Staff adoption	Percentage of eligible workflows completed using VAANI
+Voice performance	Correctly interpreted orders, clarification rate and latency
+Operating cost	AI, hosting, messaging and other variable costs per completed order
+Agree on acceptable thresholds with the cafe owner before the pilot. Report sample sizes and limitations; a small trial does not establish that results will generalize to other restaurants.
+16. Business, privacy and operational requirements
+Before the system handles real customer or business data, define:
+- Business ownership of menu, order and operational records.
+- Staff onboarding and offboarding procedures.
+- Data retention and deletion periods.
+- Customer notice and consent requirements where applicable, especially for voice recording.
+- Who can access order histories, customer details and recordings.
+- How support incidents and suspected data breaches are handled.
+- How a cafe can export its data or leave the service.
+- What happens to customer data when an organization is deleted.
+- Provider terms and the geographic processing of AI and speech data.
+For India, get appropriate advice on applicable privacy, consumer, payment and tax requirements before production use. Do not treat this implementation plan as a legal compliance certification.
+Commercial model to evaluate later
+Do not finalize pricing before measuring the cost of serving an actual cafe. Calculate:
+- Fixed hosting and database costs.
+- Variable AI and speech costs.
+- Messaging and telephony charges, if used.
+- Support and maintenance time.
+- Backup, monitoring and operational overhead.
+Then estimate gross margin per cafe at different usage levels. A voice-heavy workflow can have very different economics from a dashboard-only deployment.
+17. Production gap register
+Use this list as the authoritative set of major gates for planning. A gap should only be marked complete when the implementation and its evidence have been reviewed.
+Readiness checklist
+0 of 10 marked complete
+
+
+
+[ ] Production authentication and sessions
+Security · No arbitrary-password development login, expiry, logout and revocation.
+
+
+[ ] CSRF, rate limiting and access controls
+Security · Server-side checks and regression tests for every sensitive route.
+
+
+[ ] PostgreSQL repository and migrations
+Data · Production persistence, constraints, transaction handling and recovery.
+
+
+[ ] Transactional outbox and workers
+Reliability · Retry, deduplication, crash recovery and dead-letter handling.
+
+
+[ ] Actual dashboard metrics
+Operations · Metrics calculated from documented persisted records.
+
+
+[ ] Real LLM integration
+AI · Structured extraction, menu grounding, safe tool calls and fallback.
+
+
+[ ] Speech and multilingual evaluation
+Voice · Tested language coverage, latency, noise handling and confirmation.
+
+
+[ ] AWS architecture and cost approval
+Deployment · Region, service availability, access, quotas, network and full cost estimate.
+
+
+[ ] Backup, restore and monitoring
+Deployment · Documented recovery objectives and successful restoration test.
+
+
+[ ] Cafe acceptance and operating procedures
+Pilot · Owner approval, staff training, manual fallback and reconciliation.
+
+
+This is a planning checklist, not an automated audit. Checking an item here does not verify the implementation or change project files.
+
+18. What you should do next, starting now
+Do not ask Manus to implement the entire roadmap in one enormous task. Large changes to authentication, persistence, AI and deployment simultaneously are difficult to verify and can regress working features.
+Use this sequence:
+1. Preserve and tag the current Milestone 3B.2 baseline in Git.
+2. Review the existing repository and readiness documents.
+3. Implement Milestone 3C: authentication and session security.
+4. Implement Milestone 3D: PostgreSQL, migrations and transaction safety.
+5. Implement Milestone 3E: durable event processing.
+6. Complete the cafe operations MVP and validate it with the owner.
+7. Integrate a real LLM, then speech, only after the deterministic ordering workflow is reliable.
+8. Review AWS service availability, account access, region, quotas and estimated cost before any deployment.
+Your immediate Manus task
+VAANI — Milestone 3C: Authentication and Session Security
+Continue from the existing Milestone 3B.2 release-audit codebase. Do not rebuild the application from scratch.
+First: inspect and report
+- Inspect the current authentication, session, server and API implementations.
+- Review the existing tenant/property authorization checks and tests.
+- Identify all development-only authentication assumptions.
+- Produce a short implementation plan before modifying files.
+Implement
+1. Separate development and production authentication configurations.
+2. Prevent production mode from accepting arbitrary passwords or falling back to development authentication.
+3. Implement secure session lifecycle management, including expiry, logout and server-side revocation.
+4. Configure secure cookie attributes and production transport requirements.
+5. Add CSRF protection for cookie-authenticated state-changing requests.
+6. Add configurable rate limiting to authentication endpoints.
+7. Preserve tenant and property authorization checks on all sensitive routes.
+8. Keep credentials and secrets out of logs and source control.
+Testing
+Add automated tests for invalid credentials, session expiry, logout and session reuse, revocation, CSRF rejection, rate limiting, production misconfiguration, and cross-tenant access.
+Retain the existing Milestone 3B.2 regression tests. Do not replace them with weaker tests.
+Constraints
+- Remain local.
+- Do not deploy AWS resources.
+- Do not activate paid services.
+- Do not change billing or provision telephony.
+- Use fictional accounts and synthetic data.
+- Do not claim production readiness merely because the test suite passes.
+Deliverables
+- Updated code and automated tests.
+- docs/milestone-3c-security.md
+- Updated production gap register.
+- Actual test commands and results.
+- A clear list of remaining risks.
+- A downloadable project archive.
+After completion, report what was changed, what was verified, what remains incomplete, and whether local development still works without AWS credentials.
+Do not begin the PostgreSQL migration in this milestone. Keep it separate so authentication changes can be reviewed independently.
+
+
+
+
+19. The complete VAANI strategy in one mind map
+VAANI
+Hospitality operations platform
+
+Foundation
+Authentication · PostgreSQL · Transactions · Tenant isolation
+
+
+Operations
+Menu · Orders · Kitchen · Inventory · Guest requests
+
+
+Intelligence
+LLM · Speech · Multilingual ordering · Analytics
+
+
+Reliability
+Outbox · Workers · Monitoring · Backups · Recovery
+
+
+Deployment
+AWS review · Cost controls · Staging · Production gates
+
+
+Growth
+Agra cafe pilot · Measured outcomes · More properties
