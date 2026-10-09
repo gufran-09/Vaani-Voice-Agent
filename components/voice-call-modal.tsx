@@ -553,7 +553,7 @@ export function VoiceCallModal() {
             {/* Phone Number Bar for Real SMS Demo */}
             <div className="flex items-center gap-2 bg-secondary/30 p-2 rounded-xl border border-border/50 text-xs">
               <Smartphone className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span className="font-medium text-muted-foreground shrink-0">Judge's Phone (SMS):</span>
+              <span className="font-medium text-muted-foreground shrink-0">Judge&apos;s Phone (SMS):</span>
               <Input
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
@@ -635,7 +635,7 @@ export function VoiceCallModal() {
                 </p>
                 {transcript && (
                   <p className="text-xs font-medium text-primary mt-1 max-w-[340px] truncate px-2">
-                    "{transcript}"
+                    &ldquo;{transcript}&rdquo;
                   </p>
                 )}
               </div>
@@ -653,7 +653,7 @@ export function VoiceCallModal() {
               <div ref={scrollRef} className="h-40 overflow-y-auto p-3 space-y-2 text-xs">
                 {messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-center">
-                    Click "Start Call" or use the quick test chips below.
+                    Click &quot;Start Call&quot; or use the quick test chips below.
                   </div>
                 ) : (
                   messages.map((m) => (
