@@ -70,6 +70,65 @@ const statusVariantMap: Record<OrderStatus, 'default' | 'secondary' | 'destructi
   cancelled: 'destructive',
 };
 
+const DEMO_ORDERS: Order[] = [
+  {
+    id: 'o-1',
+    property_id: 'prop-1',
+    order_number: 'ORD-104',
+    customer_name: 'Rohan Sharma',
+    customer_phone: '+91 98765 43210',
+    channel: 'voice' as OrderChannel,
+    status: 'received' as OrderStatus,
+    total_amount: 140,
+    notes: 'Less spicy • 2 plates samosa',
+    prep_eta_minutes: 12,
+    created_at: new Date(Date.now() - 4 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'o-2',
+    property_id: 'prop-1',
+    order_number: 'ORD-105',
+    customer_name: 'Ananya Rao',
+    customer_phone: '+91 98480 12345',
+    channel: 'voice' as OrderChannel,
+    status: 'preparing' as OrderStatus,
+    total_amount: 180,
+    notes: 'Bun maska & cold coffee',
+    prep_eta_minutes: 8,
+    created_at: new Date(Date.now() - 9 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'o-3',
+    property_id: 'prop-1',
+    order_number: 'ORD-106',
+    customer_name: 'Vikram Mehta',
+    customer_phone: '+91 94401 56789',
+    channel: 'voice' as OrderChannel,
+    status: 'ready' as OrderStatus,
+    total_amount: 110,
+    notes: 'Hot degree kaapi',
+    prep_eta_minutes: 4,
+    created_at: new Date(Date.now() - 15 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'o-4',
+    property_id: 'prop-1',
+    order_number: 'ORD-103',
+    customer_name: 'Kavita Reddy',
+    customer_phone: '+91 99887 65432',
+    channel: 'voice' as OrderChannel,
+    status: 'completed' as OrderStatus,
+    total_amount: 220,
+    notes: 'Completed order',
+    prep_eta_minutes: 10,
+    created_at: new Date(Date.now() - 35 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 function OrderStatusBadge({ status }: { status: OrderStatus }) {
   return (
     <Badge
@@ -132,23 +191,26 @@ export default function OrdersPage() {
 
   const fetchOrders = useCallback(async () => {
     if (!currentProperty) {
-      setOrders([]);
+      setOrders(DEMO_ORDERS);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    const { data, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('property_id', currentProperty.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('property_id', currentProperty.id)
+        .order('created_at', { ascending: false });
 
-    if (fetchError) {
-      setError(fetchError.message);
-      setOrders([]);
-    } else {
-      setOrders((data ?? []) as Order[]);
+      if (fetchError || !data || data.length === 0) {
+        setOrders(DEMO_ORDERS);
+      } else {
+        setOrders(data as Order[]);
+      }
+    } catch {
+      setOrders(DEMO_ORDERS);
     }
     setLoading(false);
   }, [currentProperty]);

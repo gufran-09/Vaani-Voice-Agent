@@ -4,7 +4,7 @@
  * Manages per-session message history and drives the tool-calling loop with Claude.
  */
 
-import type { Message } from '@aws-sdk/client-bedrock-runtime';
+import type { Message, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import { converseWithTools, makeToolResultMessage } from './bedrock';
 import { TOOL_SPECS, executeTool } from './tools';
 
@@ -83,7 +83,7 @@ export async function runTurn(
             input: block.input,
           },
         };
-      }) as any[],
+      }) as ContentBlock[],
     };
     history.push(assistantMsg);
 

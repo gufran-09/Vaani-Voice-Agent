@@ -89,16 +89,16 @@ export default function SignInPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-xs font-bold text-cafe-espresso">Staff Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@business.com"
+                  placeholder="manager@cafevaani.in"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 rounded-xl border-cafe-sand"
                   required
                 />
               </div>
@@ -106,8 +106,8 @@ export default function SignInPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Label htmlFor="password" className="text-xs font-bold text-cafe-espresso">Password</Label>
+                <button type="button" className="text-xs text-cafe-coral hover:underline">
                   Forgot password?
                 </button>
               </div>
@@ -116,10 +116,10 @@ export default function SignInPage() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-9 pr-9"
+                  className="pl-9 pr-9 rounded-xl border-cafe-sand"
                   required
                 />
                 <button
@@ -132,22 +132,22 @@ export default function SignInPage() {
               </div>
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full" size="lg">
-              {loading ? 'Signing in...' : 'Sign in'}
+            <Button type="submit" disabled={loading} className="w-full rounded-2xl bg-cafe-coral hover:bg-cafe-coral-dark text-white font-bold h-11 shadow-warm">
+              {loading ? 'Signing in...' : 'Sign In to Workspace'}
               {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
             </Button>
           </form>
 
           <div className="my-6 flex items-center gap-4">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">or</span>
-            <Separator className="flex-1" />
+            <Separator className="flex-1 bg-cafe-sand" />
+            <span className="text-[10px] text-cafe-espresso/50 uppercase tracking-wider font-bold">or</span>
+            <Separator className="flex-1 bg-cafe-sand" />
           </div>
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-xs text-cafe-espresso/70">
             Don&apos;t have an account?{' '}
-            <Link href="/sign-up" className="font-medium text-foreground hover:underline">
-              Create one
+            <Link href="/sign-up" className="font-bold text-cafe-coral hover:underline">
+              Create Café Account
             </Link>
           </p>
         </div>

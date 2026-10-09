@@ -1,12 +1,12 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Plus_Jakarta_Sans, Playfair_Display } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/components/auth-provider';
 
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-sans',
   display: 'swap',
 });
 
@@ -17,9 +17,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'VAANI — AI Voice & Hospitality Operations Platform',
+  title: 'VAANI — The Voice Agent That Answers Every Call a Café Misses',
   description:
-    'Premium AI-powered hospitality operations platform for cafes, restaurants, hotels, and hospitality groups. Automate customer interactions, coordinate operations, and elevate guest experiences.',
+    'Vibrant, multilingual AI voice agent for modern cafés and restaurants. Takes takeaway orders in Telugu, Hindi & English, syncs real-time with kitchen display, and eliminates missed calls.',
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
+      <body className={`${jakarta.variable} ${playfair.variable} font-sans antialiased selection:bg-cafe-coral/20 selection:text-cafe-espresso`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

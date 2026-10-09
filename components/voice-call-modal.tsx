@@ -158,7 +158,7 @@ export function VoiceCallModal() {
   const [callActive, setCallActive] = useState(false);
   const [callState, setCallState] = useState<'idle' | 'ringing' | 'listening' | 'thinking' | 'speaking'>('idle');
   const [customerPhone, setCustomerPhone] = useState('+91 98765 43210');
-  const [customerName, setCustomerName] = useState('Hackathon Judge');
+  const [customerName, setCustomerName] = useState('Café Guest');
   const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [manualText, setManualText] = useState('');
@@ -553,7 +553,7 @@ export function VoiceCallModal() {
             {/* Phone Number Bar for Real SMS Demo */}
             <div className="flex items-center gap-2 bg-secondary/30 p-2 rounded-xl border border-border/50 text-xs">
               <Smartphone className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span className="font-medium text-muted-foreground shrink-0">Judge&apos;s Phone (SMS):</span>
+              <span className="font-medium text-muted-foreground shrink-0">Customer Phone (SMS):</span>
               <Input
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}

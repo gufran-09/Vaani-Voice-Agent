@@ -26,6 +26,19 @@ const config: Config = {
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        cafe: {
+          cream: '#FFF8EF',
+          coral: '#E85D3F',
+          'coral-dark': '#C84B31',
+          mango: '#F4B544',
+          'mango-light': '#FCD581',
+          leaf: '#527A4B',
+          'leaf-light': '#749C6D',
+          espresso: '#3B2418',
+          'espresso-dark': '#24140D',
+          sand: '#F7EFE2',
+          card: '#FFFFFF',
+        },
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',

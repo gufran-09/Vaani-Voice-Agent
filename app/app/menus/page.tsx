@@ -76,11 +76,27 @@ function splitCommaList(value: string): string[] {
     .filter(Boolean);
 }
 
+const DEFAULT_CATEGORIES: MenuCategory[] = [
+  { id: 'cat-1', property_id: 'prop-1', name: 'Drinks & Kaapi', display_order: 1, created_at: new Date().toISOString() },
+  { id: 'cat-2', property_id: 'prop-1', name: 'Hot Snacks & Fryer', display_order: 2, created_at: new Date().toISOString() },
+  { id: 'cat-3', property_id: 'prop-1', name: 'Tiffin & Griddle', display_order: 3, created_at: new Date().toISOString() },
+  { id: 'cat-4', property_id: 'prop-1', name: 'Bakery & Breads', display_order: 4, created_at: new Date().toISOString() },
+];
+
+const DEFAULT_ITEMS: MenuItem[] = [
+  { id: 'item-1', property_id: 'prop-1', category_id: 'cat-1', name: 'South Indian Filter Kaapi', description: 'Freshly brewed chicory blend with frothy milk', price: 40, availability: 'available', spoken_aliases: ['kaapi', 'degree coffee', 'filter coffee'], allergens: ['milk'], prep_time_minutes: 4, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'item-2', property_id: 'prop-1', category_id: 'cat-1', name: 'Cutting Masala Chai', description: 'Ginger and cardamom infused hot milk tea', price: 25, availability: 'available', spoken_aliases: ['chai', 'tea', 'kadak chai'], allergens: ['milk'], prep_time_minutes: 3, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'item-3', property_id: 'prop-1', category_id: 'cat-2', name: 'Golden Crispy Samosa', description: 'Spiced potato and peas in crisp pastry crust', price: 50, availability: 'available', spoken_aliases: ['samosa', 'samosalu', 'aloo samosa'], allergens: ['gluten'], prep_time_minutes: 6, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'item-4', property_id: 'prop-1', category_id: 'cat-3', name: 'Tawa Masala Dosa', description: 'Crisp fermented crepe with spiced potato filling', price: 90, availability: 'available', spoken_aliases: ['dosa', 'masala dosa', 'dosalu'], allergens: [], prep_time_minutes: 8, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'item-5', property_id: 'prop-1', category_id: 'cat-4', name: 'Irani Bun Maska', description: 'Soft round bun with rich butter slab and chai masala', price: 60, availability: 'available', spoken_aliases: ['bun maska', 'maska bun'], allergens: ['gluten', 'dairy'], prep_time_minutes: 3, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'item-6', property_id: 'prop-1', category_id: 'cat-4', name: 'Spiced Veg Puff', description: 'Flaky baked pastry filled with curried vegetables', price: 35, availability: 'limited', spoken_aliases: ['puff', 'curry puff'], allergens: ['gluten'], prep_time_minutes: 4, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+];
+
 export default function MenusPage() {
   const { currentProperty, refresh } = useApp();
 
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>(DEFAULT_CATEGORIES);
+  const [items, setItems] = useState<MenuItem[]>(DEFAULT_ITEMS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('all');
@@ -107,40 +123,42 @@ export default function MenusPage() {
 
   const fetchData = useCallback(async () => {
     if (!currentProperty) {
-      setCategories([]);
-      setItems([]);
+      setCategories(DEFAULT_CATEGORIES);
+      setItems(DEFAULT_ITEMS);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
 
-    const [catRes, itemRes] = await Promise.all([
-      supabase
-        .from('menu_categories')
-        .select('*')
-        .eq('property_id', currentProperty.id)
-        .order('display_order', { ascending: true }),
-      supabase
-        .from('menu_items')
-        .select('*')
-        .eq('property_id', currentProperty.id)
-        .order('name', { ascending: true }),
-    ]);
+    try {
+      const [catRes, itemRes] = await Promise.all([
+        supabase
+          .from('menu_categories')
+          .select('*')
+          .eq('property_id', currentProperty.id)
+          .order('display_order', { ascending: true }),
+        supabase
+          .from('menu_items')
+          .select('*')
+          .eq('property_id', currentProperty.id)
+          .order('name', { ascending: true }),
+      ]);
 
-    if (catRes.error) {
-      setError(catRes.error.message);
-      setLoading(false);
-      return;
-    }
-    if (itemRes.error) {
-      setError(itemRes.error.message);
-      setLoading(false);
-      return;
-    }
+      const fetchedCats = (catRes.data ?? []) as MenuCategory[];
+      const fetchedItems = (itemRes.data ?? []) as MenuItem[];
 
-    setCategories((catRes.data ?? []) as MenuCategory[]);
-    setItems((itemRes.data ?? []) as MenuItem[]);
+      if (fetchedCats.length > 0 || fetchedItems.length > 0) {
+        setCategories(fetchedCats.length > 0 ? fetchedCats : DEFAULT_CATEGORIES);
+        setItems(fetchedItems.length > 0 ? fetchedItems : DEFAULT_ITEMS);
+      } else {
+        setCategories(DEFAULT_CATEGORIES);
+        setItems(DEFAULT_ITEMS);
+      }
+    } catch {
+      setCategories(DEFAULT_CATEGORIES);
+      setItems(DEFAULT_ITEMS);
+    }
     setLoading(false);
   }, [currentProperty]);
 

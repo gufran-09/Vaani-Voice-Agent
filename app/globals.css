@@ -4,70 +4,70 @@
 
 @layer base {
   :root {
-    /* Light theme — warm ivory surfaces with navy text */
-    --background: 40 33% 95%;
-    --foreground: 222 47% 9%;
-    --card: 40 30% 98%;
-    --card-foreground: 222 47% 9%;
-    --popover: 40 30% 98%;
-    --popover-foreground: 222 47% 9%;
-    --primary: 222 47% 9%;
-    --primary-foreground: 40 30% 98%;
-    --secondary: 40 20% 90%;
-    --secondary-foreground: 222 47% 9%;
-    --muted: 40 15% 92%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 36 43% 60%;
-    --accent-foreground: 222 47% 9%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 40 30% 98%;
-    --success: 142 71% 45%;
-    --success-foreground: 40 30% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 9%;
-    --border: 40 15% 88%;
-    --input: 40 15% 88%;
-    --ring: 36 43% 60%;
-    --radius: 0.625rem;
+    /* Vaani Premium Café Theme — Warm ivory, espresso, tomato coral, mango, leaf green */
+    --background: 34 100% 97%;       /* #FFF8EF Cream / warm ivory */
+    --foreground: 21 42% 16%;        /* #3B2418 Espresso brown */
+    --card: 0 0% 100%;               /* Clean white surface */
+    --card-foreground: 21 42% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 21 42% 16%;
+    --primary: 11 78% 58%;           /* #E85D3F Tomato coral */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 36 60% 93%;         /* Warm sand accent */
+    --secondary-foreground: 21 42% 16%;
+    --muted: 36 40% 92%;
+    --muted-foreground: 21 20% 46%;
+    --accent: 39 89% 61%;            /* #F4B544 Mango yellow */
+    --accent-foreground: 21 42% 16%;
+    --destructive: 11 78% 54%;       /* Tomato coral red */
+    --destructive-foreground: 0 0% 100%;
+    --success: 111 23% 39%;          /* #527A4B Leaf green */
+    --success-foreground: 0 0% 100%;
+    --warning: 39 89% 61%;           /* #F4B544 Mango yellow */
+    --warning-foreground: 21 42% 16%;
+    --border: 34 25% 88%;
+    --input: 34 25% 88%;
+    --ring: 11 78% 58%;
+    --radius: 0.875rem;
 
-    --chart-1: 222 47% 20%;
-    --chart-2: 36 43% 60%;
-    --chart-3: 142 71% 45%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 0 72% 51%;
+    --chart-1: 11 78% 58%;           /* Tomato coral */
+    --chart-2: 39 89% 61%;           /* Mango yellow */
+    --chart-3: 111 23% 39%;          /* Leaf green */
+    --chart-4: 21 42% 26%;           /* Roasted espresso */
+    --chart-5: 28 85% 55%;           /* Terracotta */
   }
 
   .dark {
-    /* Dark theme — midnight navy with champagne gold accents */
-    --background: 222 47% 6%;
-    --foreground: 40 25% 92%;
-    --card: 222 44% 9%;
-    --card-foreground: 40 25% 92%;
-    --popover: 222 44% 9%;
-    --popover-foreground: 40 25% 92%;
-    --primary: 40 25% 92%;
-    --primary-foreground: 222 47% 9%;
-    --secondary: 222 30% 15%;
-    --secondary-foreground: 40 25% 92%;
-    --muted: 222 30% 15%;
-    --muted-foreground: 220 10% 60%;
-    --accent: 36 43% 60%;
-    --accent-foreground: 222 47% 9%;
-    --destructive: 0 62% 40%;
-    --destructive-foreground: 40 30% 98%;
-    --success: 142 60% 40%;
-    --success-foreground: 40 30% 98%;
-    --warning: 38 80% 50%;
-    --warning-foreground: 222 47% 9%;
-    --border: 222 30% 18%;
-    --input: 222 30% 18%;
-    --ring: 36 43% 60%;
+    /* Dark roast evening café theme */
+    --background: 21 45% 9%;         /* Deep roasted espresso */
+    --foreground: 34 100% 97%;       /* Warm ivory */
+    --card: 21 38% 13%;              /* Espresso velvet card */
+    --card-foreground: 34 100% 97%;
+    --popover: 21 38% 13%;
+    --popover-foreground: 34 100% 97%;
+    --primary: 11 78% 58%;           /* Coral accent */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 21 30% 18%;
+    --secondary-foreground: 34 100% 97%;
+    --muted: 21 25% 18%;
+    --muted-foreground: 34 25% 65%;
+    --accent: 39 89% 61%;            /* Mango */
+    --accent-foreground: 21 42% 16%;
+    --destructive: 11 75% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 111 30% 48%;
+    --success-foreground: 0 0% 100%;
+    --warning: 39 89% 61%;
+    --warning-foreground: 21 42% 16%;
+    --border: 21 25% 20%;
+    --input: 21 25% 20%;
+    --ring: 11 78% 58%;
 
-    --chart-1: 36 43% 60%;
-    --chart-2: 222 60% 45%;
-    --chart-3: 142 60% 45%;
-    --chart-4: 38 80% 55%;
-    --chart-5: 0 62% 50%;
+    --chart-1: 11 78% 58%;
+    --chart-2: 39 89% 61%;
+    --chart-3: 111 30% 48%;
+    --chart-4: 34 70% 75%;
+    --chart-5: 28 85% 55%;
   }
 }
 
@@ -94,6 +94,57 @@
     background-image: radial-gradient(hsl(var(--border)) 1px, transparent 1px);
     background-size: 1.25rem 1.25rem;
   }
+  .shadow-warm {
+    box-shadow: 0 8px 25px -6px rgba(59, 36, 24, 0.08), 0 4px 10px -4px rgba(232, 93, 63, 0.04);
+  }
+  .shadow-warm-lg {
+    box-shadow: 0 16px 36px -10px rgba(59, 36, 24, 0.12), 0 8px 18px -6px rgba(232, 93, 63, 0.07);
+  }
+  .shadow-warm-xl {
+    box-shadow: 0 24px 50px -12px rgba(59, 36, 24, 0.16), 0 12px 24px -8px rgba(232, 93, 63, 0.1);
+  }
+  .glass-warm {
+    background: rgba(255, 248, 239, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .dark .glass-warm {
+    background: rgba(33, 20, 13, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .animate-marquee {
+    display: flex;
+    width: max-content;
+    animation: marquee 32s linear infinite;
+  }
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
+  .animate-float-slow {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+  .animate-float-medium {
+    animation: float-medium 4.8s ease-in-out infinite;
+  }
+  .animate-float-delayed {
+    animation: float-slow 7s ease-in-out 1.5s infinite;
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(1.5deg); }
+}
+
+@keyframes float-medium {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-18px) rotate(-2deg); }
 }
 
 /* Smooth scrollbar */

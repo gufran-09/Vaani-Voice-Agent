@@ -21,12 +21,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   if (authLoading || (user && appLoading)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-secondary/30">
+      <div className="min-h-screen flex items-center justify-center bg-cafe-cream">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center animate-pulse-soft">
-            <span className="text-primary-foreground font-display font-bold">V</span>
+          <div className="w-12 h-12 rounded-2xl bg-cafe-coral text-white flex items-center justify-center animate-pulse shadow-warm">
+            <span className="font-display font-extrabold text-xl">V</span>
           </div>
-          <p className="text-sm text-muted-foreground animate-pulse-soft">Loading your workspace...</p>
+          <p className="text-xs font-bold text-cafe-espresso/70 animate-pulse">Loading Café Workspace...</p>
         </div>
       </div>
     );
@@ -35,11 +35,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-secondary/20 flex">
+    <div className="min-h-screen bg-cafe-sand/20 flex text-cafe-espresso">
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <AppTopbar />
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-auto p-4 lg:p-6 bg-cafe-cream/30">
           {children}
         </main>
       </div>
