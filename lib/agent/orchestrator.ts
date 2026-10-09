@@ -83,7 +83,7 @@ export async function runTurn(
             input: block.input,
           },
         };
-      }),
+      }) as any[],
     };
     history.push(assistantMsg);
 
