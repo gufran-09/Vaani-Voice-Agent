@@ -54,23 +54,11 @@ export async function getEta(propertyId: string, itemIds: string[]): Promise<num
      JOIN menu_items mi ON mi.id = oi.menu_item_id
      WHERE o.property_id = $1
        AND o.status IN ('received', 'preparing')
-       AND (${stationArray.map((_, i) => `mi.description ILIKE $${i + 3}`).join(' OR ')})`,
-    [propertyId, propertyId, ...stationArray.map((s) => `%station:${s}%`)],
-  );
-
-  // Fix: The query above has a duplicate $1 bug — re-write cleanly
-  const backlogRes2 = await query<{ backlog: string }>(
-    `SELECT COUNT(DISTINCT o.id)::text AS backlog
-     FROM orders o
-     JOIN order_items oi ON oi.order_id = o.id
-     JOIN menu_items mi ON mi.id = oi.menu_item_id
-     WHERE o.property_id = $1
-       AND o.status IN ('received', 'preparing')
        AND mi.description ILIKE ANY($2::text[])`,
     [propertyId, stationArray.map((s) => `%station:${s}%`)],
   );
 
-  const backlog = parseInt(backlogRes2.rows[0]?.backlog ?? '0');
+  const backlog = parseInt(backlogRes.rows[0]?.backlog ?? '0', 10);
 
   const eta = maxBasePrep + (backlog * STATION_THROUGHPUT_MINUTES) + SAFETY_BUFFER_MINUTES;
   return Math.min(eta, 45); // cap at 45 min
