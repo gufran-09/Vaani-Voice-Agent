@@ -93,6 +93,20 @@ async function requireUser(): Promise<string> {
 export async function POST(request: Request) {
   try {
     const userId = await requireUser();
+    const user = getAuthenticatedUser(cookies());
+
+    try {
+      await query(
+        `INSERT INTO profiles (id, email, full_name)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (id) DO UPDATE SET
+           email = CASE WHEN profiles.email = '' THEN EXCLUDED.email ELSE profiles.email END,
+           full_name = COALESCE(profiles.full_name, EXCLUDED.full_name)`,
+        [userId, user?.email ?? '', user?.fullName ?? null],
+      );
+    } catch (profileErr) {
+      console.warn('Auto-ensure profile warning:', profileErr);
+    }
     const body = (await request.json()) as {
       table: string;
       operation: 'select' | 'insert' | 'update' | 'delete';
@@ -202,7 +216,12 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ data: result.rows });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Database request failed';
+    console.error('Data route error:', error);
+    const message = (error instanceof Error && error.message)
+      ? error.message
+      : (typeof error === 'object' && error !== null && 'message' in error && (error as any).message)
+        ? String((error as any).message)
+        : String(error) || 'Database request failed';
     return NextResponse.json({ error: message }, { status: message.includes('signed in') ? 401 : 400 });
   }
 }

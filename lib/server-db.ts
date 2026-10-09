@@ -1,16 +1,28 @@
 import { Pool, QueryResult } from 'pg';
 
-const globalForDb = globalThis as unknown as { pool?: Pool };
-const pool = globalForDb.pool ?? new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false },
-});
-if (process.env.NODE_ENV !== 'production') globalForDb.pool = pool;
+const globalForDb = globalThis as unknown as { pool?: Pool; currentUrl?: string };
+
+function getPool(): Pool {
+  const currentUrl = process.env.DATABASE_URL;
+  if (!currentUrl) throw new Error('DATABASE_URL is not configured');
+
+  if (!globalForDb.pool || globalForDb.currentUrl !== currentUrl) {
+    if (globalForDb.pool) {
+      globalForDb.pool.end().catch(() => {});
+    }
+    globalForDb.pool = new Pool({
+      connectionString: currentUrl,
+      ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false },
+    });
+    globalForDb.currentUrl = currentUrl;
+  }
+  return globalForDb.pool;
+}
 
 export function query<T extends Record<string, unknown> = Record<string, unknown>>(
   text: string,
   values: unknown[] = [],
 ): Promise<QueryResult<T>> {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
+  const pool = getPool();
   return pool.query<T>(text, values);
 }
