@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/components/auth-provider';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/api';
 import type { Database } from '@/lib/types';
 
 type Organization = Database['public']['Tables']['organizations']['Row'];

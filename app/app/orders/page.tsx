@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useApp } from '@/components/app-provider';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/api';
 import type { Database } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import type { AuthSession as Session, AuthUser as User } from '@/lib/api';
+import { supabase } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextValue {
@@ -63,18 +63,26 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   }, [router]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error && data) {
+      setSession(data);
+      setUser(data.user);
+    }
     return { error: error?.message ?? null };
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: fullName ? { full_name: fullName } : undefined,
       },
     });
+    if (!error && data) {
+      setSession(data);
+      setUser(data.user);
+    }
     return { error: error?.message ?? null };
   }, []);
 
@@ -83,7 +91,10 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
     if (error) {
       throw new Error(error.message);
     }
-  }, []);
+    setSession(null);
+    setUser(null);
+    router.push('/');
+  }, [router]);
 
   const value = useMemo(() => ({ user, session, loading, signIn, signUp, signOut }), [
     user,
