@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme — warm ivory surfaces with navy text */
+    --background: 40 33% 95%;
+    --foreground: 222 47% 9%;
+    --card: 40 30% 98%;
+    --card-foreground: 222 47% 9%;
+    --popover: 40 30% 98%;
+    --popover-foreground: 222 47% 9%;
+    --primary: 222 47% 9%;
+    --primary-foreground: 40 30% 98%;
+    --secondary: 40 20% 90%;
+    --secondary-foreground: 222 47% 9%;
+    --muted: 40 15% 92%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 36 43% 60%;
+    --accent-foreground: 222 47% 9%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 30% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 40 30% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 9%;
+    --border: 40 15% 88%;
+    --input: 40 15% 88%;
+    --ring: 36 43% 60%;
+    --radius: 0.625rem;
+
+    --chart-1: 222 47% 20%;
+    --chart-2: 36 43% 60%;
+    --chart-3: 142 71% 45%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 72% 51%;
+  }
+
+  .dark {
+    /* Dark theme — midnight navy with champagne gold accents */
+    --background: 222 47% 6%;
+    --foreground: 40 25% 92%;
+    --card: 222 44% 9%;
+    --card-foreground: 40 25% 92%;
+    --popover: 222 44% 9%;
+    --popover-foreground: 40 25% 92%;
+    --primary: 40 25% 92%;
+    --primary-foreground: 222 47% 9%;
+    --secondary: 222 30% 15%;
+    --secondary-foreground: 40 25% 92%;
+    --muted: 222 30% 15%;
+    --muted-foreground: 220 10% 60%;
+    --accent: 36 43% 60%;
+    --accent-foreground: 222 47% 9%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 40 30% 98%;
+    --success: 142 60% 40%;
+    --success-foreground: 40 30% 98%;
+    --warning: 38 80% 50%;
+    --warning-foreground: 222 47% 9%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 36 43% 60%;
+
+    --chart-1: 36 43% 60%;
+    --chart-2: 222 60% 45%;
+    --chart-3: 142 60% 45%;
+    --chart-4: 38 80% 55%;
+    --chart-5: 0 62% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .bg-grid {
+    background-image: linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+    background-size: 4rem 4rem;
+  }
+  .bg-dots {
+    background-image: radial-gradient(hsl(var(--border)) 1px, transparent 1px);
+    background-size: 1.25rem 1.25rem;
+  }
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
