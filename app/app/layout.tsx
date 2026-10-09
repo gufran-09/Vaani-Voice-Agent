@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 import { AppProvider, useApp } from '@/components/app-provider';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppTopbar } from '@/components/app-topbar';
+import { VoiceCallModal } from '@/components/voice-call-modal';
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
@@ -42,6 +43,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <VoiceCallModal />
     </div>
   );
 }

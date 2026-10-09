@@ -15,7 +15,7 @@ import {
 import { useTheme } from 'next-themes';
 import {
   Building2, MapPin, ChevronDown, User, LogOut, Sun, Moon,
-  Bell, Search, Menu, Settings, Headset, Plus
+  Bell, Search, Menu, Settings, Headset, Plus, PhoneCall
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -91,6 +91,20 @@ export function AppTopbar() {
         <Search className="w-4 h-4" />
         <span>Search...</span>
       </div>
+
+      {/* Voice Agent Live Call Trigger */}
+      <Button
+        size="sm"
+        onClick={() => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('open-voice-modal'));
+          }
+        }}
+        className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-sm shadow-emerald-600/20"
+      >
+        <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
+        <span>Call Voice Agent</span>
+      </Button>
 
       {/* Theme toggle */}
       <Button
