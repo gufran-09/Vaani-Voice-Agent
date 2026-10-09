@@ -1,0 +1,9 @@
+{
+  "modelId": "amazon.nova-pro-v1:0",
+  "messages": [
+    {
+      "role": "user",
+      "content": [{ "text": "Say hi in under 5 words" }]
+    }
+  ]
+}
