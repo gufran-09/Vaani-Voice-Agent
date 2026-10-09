@@ -28,7 +28,6 @@
 |   |-- server
 |   |   |-- vendor-chunks
 |   |   |   |-- @radix-ui.js
-|   |   |   |-- @supabase.js
 |   |   |   |-- @swc.js
 |   |   |   |-- class-variance-authority.js
 |   |   |   |-- clsx.js
