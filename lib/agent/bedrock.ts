@@ -55,7 +55,7 @@ export async function converseWithTools(
       description: t.description,
       inputSchema: { json: t.input_schema },
     },
-  }));
+  } as Tool));
 
   const cmd = new ConverseCommand({
     modelId: MODEL_ID,
@@ -69,7 +69,7 @@ export async function converseWithTools(
   const output = response.output?.message;
   if (!output) throw new Error('Bedrock returned no output message');
 
-  const content: BedrockConverseResult['content'] = (output.content ?? []).map((block) => {
+  const content: BedrockConverseResult['content'] = (output.content ?? []).map((block: any) => {
     if (block.text !== undefined) return { type: 'text' as const, text: block.text };
     if (block.toolUse) {
       return {
@@ -96,9 +96,9 @@ export function makeToolResultMessage(
   toolUseId: string,
   result: unknown,
 ): Message {
-  const content: ToolResultContentBlock = {
-    json: result as Record<string, unknown>,
-  };
+  const content = {
+    json: result,
+  } as ToolResultContentBlock;
   return {
     role: 'user',
     content: [{ toolResult: { toolUseId, content: [content] } }],
