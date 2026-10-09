@@ -18,7 +18,91 @@
 
 ---
 
-## 2. Team Division: 3 Parallel Tracks (Zero Merge Conflicts)
+## 2. Strict Priority Order of Work (Execution Hierarchy)
+
+To guarantee a working product with zero broken links on stage, work **MUST** follow this exact dependency chain:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        STRICT DEPENDENCY CHAIN                         │
+└────────────────────────────────────────────────────────────────────────┘
+  [Step 1: P0] Seed Cafe Menu in RDS (menu_items + spoken_aliases)
+       │
+       ▼
+  [Step 2: P0] Agent Chat API (/api/agent/chat: LLM + tool-calling + RDS write)
+       │
+       ▼
+  [Step 3: P0] Voice Call Modal (components/voice-call-modal.tsx: Mic + TTS)
+       │
+       ├──────────────────────────────────────────────────────┐
+       ▼                                                      ▼
+  [Step 4: P0] KDS Real-Time Loop (Auto-polling + Chime)  [Step 5: P1] Real SMS (Twilio / SNS)
+       │                                                      │
+       ▼                                                      ▼
+  [Step 6: P1] Agentic Stock-Out Toggle & Proactive Replacement Suggestion
+       │
+       ▼
+  [Step 7: P2] Filler Latency Masking & Polish
+       │
+       ▼
+  [Step 8: P2] Dry-Run Rehearsals (x3)
+```
+
+### 🔴 PRIORITY 0 (P0) — Non-Negotiable Core (Hours 0 – 4)
+*If any of these fail, there is NO working product to demo.*
+
+1. **P0.1 — Seed Cafe Menu in RDS (`db/seed-cafe.sql`) [MEMBER 2]**:
+   - **Why 1st:** Neither the AI Agent nor the Kitchen Display can function without real items, prices, and spoken aliases in PostgreSQL.
+   - **Exit Criteria:** Querying `SELECT name, price, spoken_aliases FROM menu_items` returns 15 realistic Indian cafe items.
+
+2. **P0.2 — AI Agent Chat API (`/api/agent/chat/route.ts`) [MEMBER 2]**:
+   - **Why 2nd:** Connects user utterances (*"Ek filter coffee aur do samosa"*) to LLM tools, verifies items in RDS, and commits directly to `orders` and `order_items` tables.
+   - **Exit Criteria:** A POST request with text `"I want 1 filter coffee and 2 samosas"` returns confirmed status and creates a row in `orders`.
+
+3. **P0.3 — In-Browser Voice Call Modal (`components/voice-call-modal.tsx`) [MEMBER 1]**:
+   - **Why 3rd:** Gives the presenter and judges a physical mic interface. Captures speech, passes text to `/api/agent/chat`, and plays the agent's voice response.
+   - **Exit Criteria:** User clicks "Call Cafe", speaks into the microphone, and the laptop speakers play back the agent's voice confirmation.
+
+4. **P0.4 — Live Kitchen Auto-Refresh & Chime (`app/app/live-operations/page.tsx`) [MEMBER 3]**:
+   - **Why 4th:** Completes the visible feedback loop. When the voice call creates an order, the kitchen screen must update within 2 seconds without a manual page reload.
+   - **Exit Criteria:** Placing an order from the voice modal immediately pops up a new card on the kitchen screen accompanied by an audible bell chime.
+
+---
+
+### 🟡 PRIORITY 1 (P1) — High-Impact "Winning" Features (Hours 4 – 7)
+*These separate a standard school project from a winning hackathon submission.*
+
+5. **P1.1 — Real SMS Dispatch (`lib/notifications/sms.ts`) [MEMBER 3]**:
+   - **Why:** Proves multi-channel fulfillment. The judge gives their phone number, places a voice order, and receives an instant SMS confirmation on their actual phone.
+   - **Exit Criteria:** Real SMS arrives: *"Cafe Vaani: Order #101 confirmed (1x Filter Coffee, 2x Samosa). Total: ₹140. ETA: 10 mins."*
+
+6. **P1.2 — 1-Click Stock-Out Toggle & Agentic Replanning [MEMBER 2 & 3]**:
+   - **Why:** Delivers the "Agentic AI" requirement. Kitchen marks Samosa out-of-stock live. A subsequent voice caller asks for Samosa, and the agent refuses it and proactively suggests hot Veg Puffs.
+   - **Exit Criteria:** Kitchen clicks "Out of Stock" on Samosa ➔ Caller says "One samosa" ➔ Agent responds: *"Sorry, Samosas are sold out! Would you like a hot Veg Puff instead?"*
+
+---
+
+### 🟢 PRIORITY 2 (P2) — Polish & Failure-Proofing (Hours 7 – 9)
+*Removes awkward friction and guarantees high presentation scores.*
+
+7. **P2.1 — Conversational Fillers & Latency Masking [MEMBER 1]**:
+   - Immediate audio acknowledgement (*"Ji, checking with the kitchen..."*) while tool calls execute, bringing perceived latency under 300ms.
+8. **P2.2 — Hindi/Telugu/English Code-Mixing Prompt Tuning [MEMBER 2]**:
+   - Ensure slang like *"rendu"*, *"kaapi"*, *"thoda jaldi"* parse cleanly.
+9. **P2.3 — 5-Slide Pitch Deck [MEMBER 3]**:
+   - Clean slides focusing on the silent revenue leak, code-mixing gap, architecture diagram, and business ROI.
+
+---
+
+### ⚪ PRIORITY 3 (P3) — Stage Rehearsal (Hour 9 – 10)
+*Strict code freeze. Practice only.*
+
+10. **P3.1 — 3x Dry Run Presentations [ALL MEMBERS]**:
+    - Timed 4-minute 30-second run-through. Volume check on mic and projector speakers. Have a screen-recorded fallback video ready.
+
+---
+
+## 3. Team Division: 3 Parallel Tracks (Zero Merge Conflicts)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -36,7 +120,7 @@
 
 ---
 
-## 3. Hour-by-Hour Sprint Schedule (10 Hours Total)
+## 4. Hour-by-Hour Sprint Schedule (10 Hours Total)
 
 ### ⏱️ Hours 0:00 – 2:00 | Foundations & Data Seed
 * **Member 1 (Voice)**:
@@ -117,10 +201,10 @@
 
 ---
 
-## 4. The 5-Minute Live Demo Walkthrough (What Will Win)
+## 5. The 5-Minute Live Demo Walkthrough (What Will Win)
 
 | Timestamp | What Happens on Screen | What the Judges Experience | Responsible |
-| :---: | :--- | :--- | :---: |
+| :---: | :--- | :--- | :--- |
 | **0:00 – 1:00** | Problem Slide | The "silent revenue leak": Indian cafes miss 30% of peak-hour calls; standard IVRs fail on code-mixed speech. | Member 3 |
 | **1:00 – 2:30** | Live Web Call on Projector | Judge clicks **"Call Cafe"** on laptop/phone. Speaks: *"Ek filter coffee aur do samosa"* in Hindi/English mix. Agent reads back total (₹100), quotes live prep time (12m). | Member 1 & 2 |
 | **2:30 – 3:15** | Live Kitchen Display | Ticket `#ORD-101` pops up on the kitchen screen with a bell chime. Judge's phone buzzes with real confirmation SMS. | Member 3 |
@@ -129,7 +213,7 @@
 
 ---
 
-## 5. Immediate Action Plan (Right Now: Minute 0 to 60)
+## 6. Immediate Action Plan (Right Now: Minute 0 to 60)
 1. **Member 1**: Create `components/voice-call-modal.tsx` with Web Speech / mic audio.
 2. **Member 2**: Create `db/seed-cafe.sql` and run it on RDS to populate the menu.
 3. **Member 3**: Connect Twilio or AWS SNS for SMS dispatch.
