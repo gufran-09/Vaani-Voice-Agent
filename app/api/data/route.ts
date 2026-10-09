@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { GetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
-import { cognitoClient, getCognitoAccessToken } from '@/lib/server-auth';
+import { cognitoClient, getCognitoAccessToken, getAuthenticatedUser } from '@/lib/server-auth';
 import { query } from '@/lib/server-db';
 
 const TABLES = new Set([
@@ -75,12 +75,19 @@ async function assertInsertAllowed(
 }
 
 async function requireUser(): Promise<string> {
+  const user = getAuthenticatedUser(cookies());
+  if (user?.id) return user.id;
+
   const accessToken = getCognitoAccessToken(cookies());
   if (!accessToken) throw new Error('You must be signed in');
-  const result = await cognitoClient.send(new GetUserCommand({ AccessToken: accessToken }));
-  const sub = result.UserAttributes?.find((attribute) => attribute.Name === 'sub')?.Value;
-  if (!sub) throw new Error('Authenticated user has no subject');
-  return sub;
+  try {
+    const result = await cognitoClient.send(new GetUserCommand({ AccessToken: accessToken }));
+    const sub = result.UserAttributes?.find((attribute) => attribute.Name === 'sub')?.Value;
+    if (sub) return sub;
+  } catch {
+    // continue to throw
+  }
+  throw new Error('You must be signed in');
 }
 
 export async function POST(request: Request) {
