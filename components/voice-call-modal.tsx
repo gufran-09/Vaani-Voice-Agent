@@ -716,7 +716,7 @@ export function VoiceCallModal() {
                 <Sparkles className="w-3 h-3 text-amber-500" />
                 Quick Pitch Phrases (Click to Test):
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 scrollbar-thin">
                 <button
                   type="button"
                   onClick={() => handleUserUtterance('Ek South Indian filter coffee aur do samosa chahiye')}
@@ -758,6 +758,34 @@ export function VoiceCallModal() {
                   className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
                 >
                   🥐 Croissant + 2 Cappuccinos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('Ek Dal Makhani Bowl aur do Gulab Jamun pack kar do')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🍛 Dal Makhani + Gulab Jamun
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('One Creamy Mushroom Pasta and one Cheese Garlic Bread please')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🍝 Mushroom Pasta + Garlic Bread
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('Rendu Medu Vada aur ek degree filter coffee ivvandi')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🍩 2 Medu Vada + Filter Coffee
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('One Hot Chocolate and one Chocolate Muffin please')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🍫 Hot Chocolate + Muffin
                 </button>
                 <button
                   type="button"

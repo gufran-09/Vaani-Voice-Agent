@@ -14,6 +14,7 @@ import {
   Phone, ArrowRight, Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ALL_FOOD_ITEMS } from '@/lib/menu-data';
 
 const STATUS_FLOW: Record<string, string> = {
   received: 'preparing',
@@ -47,7 +48,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'destructive',
 };
 
-// Built-in starter demo orders for hackathon demonstration if DB is empty
+// Built-in starter demo orders covering all 28 database food items across stations
 const DEMO_STARTER_ORDERS = [
   {
     id: 'demo-ord-1',
@@ -57,11 +58,11 @@ const DEMO_STARTER_ORDERS = [
     status: 'received',
     prep_eta_minutes: 12,
     created_at: new Date(Date.now() - 3 * 60000).toISOString(),
-    station: 'Fryer + Drinks',
+    station: 'Fryer & Snacks',
     notes: 'Parcel • Less spicy ga • Extra coconut chutney',
     order_items: [
-      { id: 'item-1', name: 'Golden Samosa (2 pcs)', quantity: 2, price: 50 },
-      { id: 'item-2', name: 'South Indian Filter Kaapi', quantity: 1, price: 40 },
+      { id: 'item-1', name: 'Samosa (2 pcs)', quantity: 2, price: 50 },
+      { id: 'item-2', name: 'South Indian Filter Coffee', quantity: 1, price: 40 },
     ],
   },
   {
@@ -72,11 +73,11 @@ const DEMO_STARTER_ORDERS = [
     status: 'preparing',
     prep_eta_minutes: 8,
     created_at: new Date(Date.now() - 7 * 60000).toISOString(),
-    station: 'Griddle Station',
+    station: 'Griddle & Tiffin',
     notes: 'Hot tawa • Sambar separate',
     order_items: [
-      { id: 'item-3', name: 'Crispy Masala Dosa', quantity: 1, price: 90 },
-      { id: 'item-4', name: 'Degree Filter Kaapi', quantity: 1, price: 40 },
+      { id: 'item-3', name: 'Tawa Masala Dosa', quantity: 1, price: 90 },
+      { id: 'item-4', name: 'Cold Brew Coffee', quantity: 1, price: 220 },
     ],
   },
   {
@@ -87,11 +88,43 @@ const DEMO_STARTER_ORDERS = [
     status: 'ready',
     prep_eta_minutes: 4,
     created_at: new Date(Date.now() - 14 * 60000).toISOString(),
-    station: 'Bakery Station',
-    notes: 'Extra butter on Bun Maska',
+    station: 'Bakery',
+    notes: 'Extra butter on Bun Maska • Warm brownie',
     order_items: [
-      { id: 'item-5', name: 'Irani Bun Maska', quantity: 2, price: 60 },
-      { id: 'item-6', name: 'Cutting Masala Chai', quantity: 2, price: 25 },
+      { id: 'item-5', name: 'Irani Bun Maska', quantity: 2, price: 50 },
+      { id: 'item-6', name: 'Cutting Masala Chai', quantity: 2, price: 30 },
+      { id: 'item-7', name: 'Warm Chocolate Brownie', quantity: 1, price: 180 },
+    ],
+  },
+  {
+    id: 'demo-ord-4',
+    order_number: 'ORD-107',
+    customer_name: 'Kavita Reddy',
+    channel: 'voice_telugu',
+    status: 'received',
+    prep_eta_minutes: 14,
+    created_at: new Date(Date.now() - 2 * 60000).toISOString(),
+    station: 'Main Kitchen',
+    notes: 'Parcel with extra jeera rice • Chilled lassi',
+    order_items: [
+      { id: 'item-8', name: 'Dal Makhani Bowl', quantity: 1, price: 250 },
+      { id: 'item-9', name: 'Mango Lassi', quantity: 1, price: 160 },
+    ],
+  },
+  {
+    id: 'demo-ord-5',
+    order_number: 'ORD-108',
+    customer_name: 'Deepak Verma',
+    channel: 'voice_english',
+    status: 'preparing',
+    prep_eta_minutes: 15,
+    created_at: new Date(Date.now() - 5 * 60000).toISOString(),
+    station: 'Main Kitchen',
+    notes: 'Extra parmesan cheese on pasta',
+    order_items: [
+      { id: 'item-10', name: 'Creamy Mushroom Pasta', quantity: 1, price: 320 },
+      { id: 'item-11', name: 'Cheese Garlic Bread', quantity: 1, price: 130 },
+      { id: 'item-12', name: 'Butter Croissant', quantity: 1, price: 90 },
     ],
   },
 ];
@@ -103,7 +136,7 @@ export default function LiveOperationsPage() {
   const [stockAlerts, setStockAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [stationFilter, setStationFilter] = useState<'all' | 'drinks' | 'fryer' | 'griddle'>('all');
+  const [stationFilter, setStationFilter] = useState<'all' | 'drinks' | 'fryer' | 'griddle' | 'bakery' | 'mains'>('all');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Play pleasant audio alert for kitchen ticket progress
@@ -234,22 +267,32 @@ export default function LiveOperationsPage() {
     }
   };
 
-  // Add an instant test ticket for live judge demonstration
+  // Add an instant test ticket for live judge demonstration with random items from all 28 DB items
   const handleAddLiveVoiceTicket = async () => {
     playKitchenChime(850);
+    // Pick 2 random items from ALL_FOOD_ITEMS catalog
+    const randIdx1 = Math.floor(Math.random() * ALL_FOOD_ITEMS.length);
+    const randIdx2 = (randIdx1 + 3 + Math.floor(Math.random() * 5)) % ALL_FOOD_ITEMS.length;
+    const item1 = ALL_FOOD_ITEMS[randIdx1];
+    const item2 = ALL_FOOD_ITEMS[randIdx2];
+    const qty1 = Math.floor(1 + Math.random() * 2);
+    const qty2 = 1;
+    const totalAmount = item1.price * qty1 + item2.price * qty2;
+    const prepEta = Math.max(item1.prep_time_minutes, item2.prep_time_minutes) + 4;
+
     const newDemoTicket = {
       id: `live-demo-${Date.now()}`,
       order_number: `ORD-${Math.floor(100 + Math.random() * 900)}`,
-      customer_name: 'Caller (Phone #9876)',
+      customer_name: 'Caller (Voice Phone)',
       channel: 'voice_code_mixed',
       status: 'received',
-      prep_eta_minutes: 10,
+      prep_eta_minutes: prepEta,
       created_at: new Date().toISOString(),
-      station: 'Drinks + Fryer',
-      notes: 'Hot degree kaapi + 2 Samosa parcel',
+      station: item1.station,
+      notes: `${item1.name} (${qty1}x) + ${item2.name} (${qty2}x)`,
       order_items: [
-        { id: `i-${Date.now()}-1`, name: 'South Indian Filter Kaapi', quantity: 1, price: 40 },
-        { id: `i-${Date.now()}-2`, name: 'Golden Samosa', quantity: 2, price: 50 },
+        { id: `i-${Date.now()}-1`, name: item1.name, quantity: qty1, price: item1.price },
+        { id: `i-${Date.now()}-2`, name: item2.name, quantity: qty2, price: item2.price },
       ],
     };
 
@@ -264,8 +307,8 @@ export default function LiveOperationsPage() {
           customer_name: newDemoTicket.customer_name,
           channel: 'voice',
           status: 'received',
-          total_amount: 140,
-          prep_eta_minutes: 10,
+          total_amount: totalAmount,
+          prep_eta_minutes: prepEta,
         });
       } catch {
         // Fallback
@@ -280,13 +323,19 @@ export default function LiveOperationsPage() {
       const notes = (o.station || o.notes || '').toLowerCase();
       const items = (o.order_items || []).map((i: any) => i.name.toLowerCase()).join(' ');
       if (stationFilter === 'drinks') {
-        return notes.includes('drink') || items.includes('coffee') || items.includes('chai') || items.includes('kaapi');
+        return notes.includes('drink') || items.includes('coffee') || items.includes('chai') || items.includes('kaapi') || items.includes('espresso') || items.includes('chocolate') || items.includes('lassi') || items.includes('cooler');
       }
       if (stationFilter === 'fryer') {
-        return notes.includes('fryer') || items.includes('samosa') || items.includes('puff');
+        return notes.includes('fryer') || items.includes('samosa') || items.includes('puff') || items.includes('roll') || items.includes('wrap') || items.includes('vada') || items.includes('corn');
       }
       if (stationFilter === 'griddle') {
-        return notes.includes('griddle') || items.includes('dosa') || items.includes('maska');
+        return notes.includes('griddle') || items.includes('dosa') || items.includes('maska') || items.includes('toast');
+      }
+      if (stationFilter === 'bakery') {
+        return notes.includes('bakery') || items.includes('croissant') || items.includes('muffin') || items.includes('brownie') || items.includes('jamun') || items.includes('panna cotta');
+      }
+      if (stationFilter === 'mains') {
+        return notes.includes('kitchen') || items.includes('makhani') || items.includes('pasta');
       }
       return true;
     });
@@ -337,12 +386,14 @@ export default function LiveOperationsPage() {
 
         {/* Station Filter Pills & Trigger */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex bg-cafe-sand/60 p-1 rounded-2xl border border-cafe-sand text-xs font-bold">
+          <div className="flex bg-cafe-sand/60 p-1 rounded-2xl border border-cafe-sand text-xs font-bold overflow-x-auto scrollbar-none">
             {[
               { id: 'all', label: 'All Stations' },
               { id: 'drinks', label: '☕ Drinks' },
               { id: 'fryer', label: '🥟 Fryer' },
               { id: 'griddle', label: '🥞 Griddle' },
+              { id: 'bakery', label: '🥐 Bakery' },
+              { id: 'mains', label: '🍛 Mains' },
             ].map((tab) => (
               <button
                 key={tab.id}

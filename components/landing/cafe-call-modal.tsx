@@ -80,6 +80,24 @@ export function CafeCallModal({ open, onOpenChange }: CafeCallModalProps) {
       phone: '+91 94401 56789',
     },
     {
+      title: 'Main Course (Dal Makhani Bowl)',
+      prompt: 'Namaste, please pack one Dal Makhani Bowl and one chilled Mango Lassi for takeaway.',
+      callerName: 'Priya Sundaram',
+      phone: '+91 98234 56789',
+    },
+    {
+      title: 'Chef Special (Pasta + Garlic Bread)',
+      prompt: 'Can I order one Creamy Mushroom Pasta with one Cheese Garlic Bread please? Yes confirm.',
+      callerName: 'Arjun Kapoor',
+      phone: '+91 97123 45678',
+    },
+    {
+      title: 'Bakery Order (Croissant + Brownie)',
+      prompt: 'Ek warm Butter Croissant aur ek Chocolate Brownie parcel ready rakhna.',
+      callerName: 'Sanjay Gupta',
+      phone: '+91 96543 21098',
+    },
+    {
       title: 'Out of Stock Replanning',
       prompt: 'Bhaiya, do plate veg puff pack kar do.',
       callerName: 'Kavita Reddy',

@@ -44,10 +44,26 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { OrderStatus, OrderChannel } from '@/lib/types';
+import { ALL_FOOD_ITEMS } from '@/lib/menu-data';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 type MenuItem = Database['public']['Tables']['menu_items']['Row'];
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
+
+const DEFAULT_MENU_ITEMS: MenuItem[] = ALL_FOOD_ITEMS.map((item) => ({
+  id: item.id,
+  property_id: 'prop-1',
+  category_id: item.category_id,
+  name: item.name,
+  description: item.description,
+  price: item.price,
+  availability: item.availability,
+  spoken_aliases: item.spoken_aliases,
+  allergens: item.allergens,
+  prep_time_minutes: item.prep_time_minutes,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}));
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'cancelled';
 
@@ -217,16 +233,23 @@ export default function OrdersPage() {
 
   const fetchMenuItems = useCallback(async () => {
     if (!currentProperty) {
-      setMenuItems([]);
+      setMenuItems(DEFAULT_MENU_ITEMS);
       return;
     }
-    const { data } = await supabase
-      .from('menu_items')
-      .select('*')
-      .eq('property_id', currentProperty.id)
-      .eq('availability', 'available')
-      .order('name', { ascending: true });
-    setMenuItems((data ?? []) as MenuItem[]);
+    try {
+      const { data } = await supabase
+        .from('menu_items')
+        .select('*')
+        .eq('property_id', currentProperty.id)
+        .order('name', { ascending: true });
+      if (data && data.length > 0) {
+        setMenuItems(data as MenuItem[]);
+      } else {
+        setMenuItems(DEFAULT_MENU_ITEMS);
+      }
+    } catch {
+      setMenuItems(DEFAULT_MENU_ITEMS);
+    }
   }, [currentProperty]);
 
   useEffect(() => {
