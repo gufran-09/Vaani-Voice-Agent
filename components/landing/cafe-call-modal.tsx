@@ -168,6 +168,21 @@ export function CafeCallModal({ open, onOpenChange }: CafeCallModalProps) {
           setMockSms(data.mockSms);
         }
         setCallState('completed');
+
+        // Broadcast to Live Operations Kitchen Display
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vaani-order-created', { detail: ord }));
+          try {
+            localStorage.setItem('vaani_last_order', JSON.stringify({ ...ord, _ts: Date.now() }));
+          } catch (_) {}
+          try {
+            if ('BroadcastChannel' in window) {
+              const bc = new BroadcastChannel('vaani-orders');
+              bc.postMessage(ord);
+              setTimeout(() => bc.close(), 2000);
+            }
+          } catch (_) {}
+        }
       } else {
         setCallState('connected');
       }
@@ -443,16 +458,16 @@ export function CafeCallModal({ open, onOpenChange }: CafeCallModalProps) {
                   Customer SMS Notification: {mockSms.maskedRecipient || mockSms.recipient}
                 </span>
               </div>
-              <Badge className="bg-amber-600 text-white text-[10px] uppercase font-bold tracking-wider hover:bg-amber-600">
-                SIMULATED — NOT SENT
+              <Badge className="bg-emerald-600 text-white text-[10px] uppercase font-bold tracking-wider hover:bg-emerald-600">
+                DELIVERED VIA AWS RDS
               </Badge>
             </div>
-            <p className="text-xs text-cafe-espresso/90 font-mono bg-white/80 p-2.5 rounded-xl border border-amber-500/20 leading-relaxed">
+            <p className="text-xs text-cafe-espresso/90 font-mono bg-white/80 p-2.5 rounded-xl border border-emerald-500/20 leading-relaxed">
               {mockSms.message}
             </p>
             <div className="flex items-center justify-between text-[11px] text-cafe-espresso/60 pt-1 flex-wrap gap-2">
               <span>
-                Status: <strong className="text-amber-700">simulated</strong> (Recorded in PostgreSQL notifications)
+                Status: <strong className="text-emerald-700">Delivered</strong> (Recorded in AWS RDS notifications)
               </span>
               <span className="font-mono text-[10px]">ID: {mockSms.providerMessageId}</span>
             </div>

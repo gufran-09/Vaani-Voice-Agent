@@ -44,7 +44,7 @@
 
 > **Speaker:**
 > *"VAANI runs directly on-premise or at the edge. It replaces expensive cloud pipelines with a tightly coordinated, localized stack:
-> - **Local Whisper Small** for instant speech recognition with bilingual Indian English and Hindi accent adaptability.
+> - **Local Whisper Large-v3-Turbo on NVIDIA RTX GPU** for instant, accurate speech recognition with bilingual Indian English and Hindi accent adaptability.
 > - **Local Ollama running Qwen 2.5** for deterministic, sub-second reasoning and strict function calling.
 > - **PostgreSQL transactional backend** with real-time menu validation, dynamic prep-time calculation, and human escalation policies.
 > 
@@ -74,8 +74,8 @@
 > **Agent Speaks aloud:** *"Your order is confirmed! It will be ready in 10 minutes. Thank you for visiting Cafe Vaani!"*
 
 > **Step 3: Real-Time Sync & Notification**  
-> **Action:** Open another tab to `/app/live-operations` or show the simulated SMS notification.  
-> **Speaker:** *"Instantly, an atomic SQL transaction committed the order into `orders` and `order_items`, and our notification system dispatched an SMS confirmation to the guest."*
+> **Action:** Open another tab to `/app/live-operations` or show the customer SMS notification.  
+> **Speaker:** *"Instantly, an atomic SQL transaction committed the order into AWS RDS PostgreSQL `orders` and `order_items`, and our notification system dispatched an SMS confirmation to the guest."*
 
 ---
 

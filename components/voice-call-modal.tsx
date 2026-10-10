@@ -165,6 +165,8 @@ export function VoiceCallModal() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [callDuration, setCallDuration] = useState(0);
   const [audioSupported, setAudioSupported] = useState(true);
+  const [sessionId, setSessionId] = useState<string>(() => 'modal_sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+  const cartRef = useRef<any[]>([]);
 
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
@@ -187,6 +189,7 @@ export function VoiceCallModal() {
     };
     window.addEventListener('open-voice-modal', handleOpen);
     return () => window.removeEventListener('open-voice-modal', handleOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Call duration counter
@@ -349,6 +352,8 @@ export function VoiceCallModal() {
 
   // Start Call Flow with Realistic Telephony Ringing
   const startCall = () => {
+    setSessionId('modal_sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+    cartRef.current = [];
     setCallActive(true);
     setCallState('ringing');
     setMessages([]);
@@ -419,9 +424,12 @@ export function VoiceCallModal() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          transcript: cleanText,
           message: cleanText,
+          sessionId,
+          cart: cartRef.current,
           history: messages.map((m) => ({ role: m.sender, content: m.text })),
-          propertyId: currentProperty?.id,
+          propertyId: currentProperty?.id || '62e1b115-9382-40f8-853a-0a773735d034',
           customerPhone,
           customerName,
         }),
@@ -434,9 +442,26 @@ export function VoiceCallModal() {
       const data = await res.json();
       const agentReply = data.reply || "Got your request. Let me confirm that for you.";
 
-      // Play order success sound if an order was confirmed
-      if (data.order) {
+      if (data.cart && Array.isArray(data.cart)) {
+        cartRef.current = data.cart;
+      }
+
+      // Play order success sound and notify KDS if an order was confirmed
+      const confirmedOrder = data.orderCreated || data.order;
+      if (confirmedOrder) {
+        cartRef.current = [];
         sounds.playOrderSuccessChime();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vaani-order-created', { detail: confirmedOrder }));
+          localStorage.setItem('vaani_last_order', JSON.stringify({ ...confirmedOrder, _ts: Date.now() }));
+          try {
+            if ('BroadcastChannel' in window) {
+              const bc = new BroadcastChannel('vaani-orders');
+              bc.postMessage(confirmedOrder);
+              setTimeout(() => bc.close(), 1000);
+            }
+          } catch (_) {}
+        }
       }
 
       const agentMsg: Message = {

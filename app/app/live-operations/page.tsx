@@ -17,18 +17,21 @@ import confetti from 'canvas-confetti';
 
 const STATUS_FLOW: Record<string, string> = {
   received: 'preparing',
+  confirmed: 'preparing',
   preparing: 'ready',
   ready: 'completed',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   received: 'Start Preparing',
+  confirmed: 'Start Preparing',
   preparing: 'Mark Ready for Pickup',
   ready: 'Hand Over & Complete',
 };
 
 const STATUS_BADGES: Record<string, { bg: string; text: string; border: string }> = {
   received: { bg: 'bg-cafe-mango/15', text: 'text-cafe-espresso', border: 'border-cafe-mango' },
+  confirmed: { bg: 'bg-cafe-mango/15', text: 'text-cafe-espresso', border: 'border-cafe-mango' },
   preparing: { bg: 'bg-cafe-coral/15', text: 'text-cafe-coral', border: 'border-cafe-coral' },
   ready: { bg: 'bg-cafe-leaf/15', text: 'text-cafe-leaf', border: 'border-cafe-leaf' },
   completed: { bg: 'bg-cafe-sand', text: 'text-cafe-espresso/60', border: 'border-cafe-espresso/20' },
@@ -47,60 +50,12 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'destructive',
 };
 
-// Built-in starter demo orders for hackathon demonstration if DB is empty
-const DEMO_STARTER_ORDERS = [
-  {
-    id: 'demo-ord-1',
-    order_number: 'ORD-104',
-    customer_name: 'Rohan Sharma',
-    channel: 'voice_telugu_hindi',
-    status: 'received',
-    prep_eta_minutes: 12,
-    created_at: new Date(Date.now() - 3 * 60000).toISOString(),
-    station: 'Fryer + Drinks',
-    notes: 'Parcel • Less spicy ga • Extra coconut chutney',
-    order_items: [
-      { id: 'item-1', name: 'Golden Samosa (2 pcs)', quantity: 2, price: 50 },
-      { id: 'item-2', name: 'South Indian Filter Kaapi', quantity: 1, price: 40 },
-    ],
-  },
-  {
-    id: 'demo-ord-2',
-    order_number: 'ORD-105',
-    customer_name: 'Ananya Rao',
-    channel: 'voice_english',
-    status: 'preparing',
-    prep_eta_minutes: 8,
-    created_at: new Date(Date.now() - 7 * 60000).toISOString(),
-    station: 'Griddle Station',
-    notes: 'Hot tawa • Sambar separate',
-    order_items: [
-      { id: 'item-3', name: 'Crispy Masala Dosa', quantity: 1, price: 90 },
-      { id: 'item-4', name: 'Degree Filter Kaapi', quantity: 1, price: 40 },
-    ],
-  },
-  {
-    id: 'demo-ord-3',
-    order_number: 'ORD-106',
-    customer_name: 'Vikram Mehta',
-    channel: 'voice_hindi',
-    status: 'ready',
-    prep_eta_minutes: 4,
-    created_at: new Date(Date.now() - 14 * 60000).toISOString(),
-    station: 'Bakery Station',
-    notes: 'Extra butter on Bun Maska',
-    order_items: [
-      { id: 'item-5', name: 'Irani Bun Maska', quantity: 2, price: 60 },
-      { id: 'item-6', name: 'Cutting Masala Chai', quantity: 2, price: 25 },
-    ],
-  },
-];
-
 export default function LiveOperationsPage() {
   const { currentProperty } = useApp();
   const [orders, setOrders] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [stockAlerts, setStockAlerts] = useState<any[]>([]);
+  const [smsLogs, setSmsLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [stationFilter, setStationFilter] = useState<'all' | 'drinks' | 'fryer' | 'griddle'>('all');
@@ -128,50 +83,60 @@ export default function LiveOperationsPage() {
   }, [soundEnabled]);
 
   const fetchData = useCallback(async () => {
-    if (!currentProperty) {
-      // If no property is active, load demo orders so page is never empty for judges
-      setOrders(DEMO_STARTER_ORDERS);
-      setLoading(false);
-      setLastUpdated(new Date());
-      return;
-    }
+    const propId = currentProperty?.id || '62e1b115-9382-40f8-853a-0a773735d034';
 
     try {
-      const [ordersRes, requestsRes, stockRes] = await Promise.all([
-        supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('property_id', currentProperty.id)
-          .in('status', ['received', 'preparing', 'ready'])
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('guest_requests')
-          .select('*, departments(name)')
-          .eq('property_id', currentProperty.id)
-          .in('status', ['open', 'assigned', 'in_progress'])
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('menu_items')
-          .select('name, availability, price')
-          .eq('property_id', currentProperty.id)
-          .neq('availability', 'available'),
-      ]);
+      // 1. Fetch live kitchen orders, real stock items, and real SMS logs from AWS RDS PostgreSQL with cache-busting
+      const t = Date.now();
+      let kitchenData = await fetch(`/api/kitchen/orders?propertyId=${propId}&_t=${t}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', Pragma: 'no-cache' },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null);
 
-      const fetchedOrders = ordersRes.data ?? [];
-      // If DB has active orders, display them; otherwise fallback to starter orders so judges see a working screen
-      if (fetchedOrders.length > 0) {
-        setOrders(fetchedOrders);
-      } else {
-        setOrders(DEMO_STARTER_ORDERS);
+      if (!kitchenData || !kitchenData.orders || kitchenData.orders.length === 0) {
+        kitchenData = await fetch(`/api/kitchen/orders?propertyId=62e1b115-9382-40f8-853a-0a773735d034&_t=${t}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', Pragma: 'no-cache' },
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null);
       }
 
-      setRequests(requestsRes.data ?? []);
-      setStockAlerts(stockRes.data ?? [
-        { name: 'Veg Puff (Bakery)', availability: 'limited', price: 35 },
-      ]);
+      if (kitchenData && Array.isArray(kitchenData.orders)) {
+        setOrders((prev) => {
+          const fetched: any[] = kitchenData.orders || [];
+          const fetchedIds = new Set(fetched.map((o) => o.id));
+          const fetchedNums = new Set(fetched.map((o) => o.order_number));
+
+          // Retain very recent optimistic orders created in the last 45 seconds that might still be syncing
+          const recentOptimistic = prev.filter(
+            (o) =>
+              !fetchedIds.has(o.id) &&
+              !fetchedNums.has(o.order_number) &&
+              Date.now() - new Date(o.created_at || Date.now()).getTime() < 45000
+          );
+
+          return [...recentOptimistic, ...fetched];
+        });
+        setStockAlerts(kitchenData.stockItems || []);
+        setSmsLogs(kitchenData.notifications || []);
+      }
+
+      try {
+        const requestsRes = await supabase
+          .from('guest_requests')
+          .select('*')
+          .eq('property_id', propId)
+          .in('status', ['open', 'assigned', 'in_progress'])
+          .order('created_at', { ascending: true });
+        setRequests(requestsRes?.data ?? []);
+      } catch {
+        setRequests([]);
+      }
     } catch (e) {
-      console.warn('Fallback to demo starter orders:', e);
-      setOrders(DEMO_STARTER_ORDERS);
+      console.warn('Error fetching live kitchen operations:', e);
     } finally {
       setLoading(false);
       setLastUpdated(new Date());
@@ -180,9 +145,99 @@ export default function LiveOperationsPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 15000); // 15s refresh
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    const interval = setInterval(fetchData, 2000); // 2s ultra-fast real-time refresh
+
+    const handleNewOrder = (orderData: any) => {
+      if (!orderData) return;
+      playKitchenChime(580);
+      setOrders((prev) => {
+        const id = orderData.id || orderData.orderId || orderData.order_number;
+        const ordNum = orderData.orderNumber || orderData.order_number;
+        if (
+          prev.some(
+            (o) =>
+              (id && o.id === id) ||
+              (ordNum && o.order_number === ordNum)
+          )
+        ) {
+          return prev;
+        }
+        const formatted = {
+          id: id || `ord-${Date.now()}`,
+          order_number: ordNum || `#${Math.floor(1000 + Math.random() * 9000)}`,
+          customer_name: orderData.customerName || orderData.customer_name || 'Phone Caller',
+          customer_phone: orderData.customerPhone || orderData.customer_phone || '+91 98765 43210',
+          channel: 'voice',
+          order_type: 'takeaway',
+          status: 'received',
+          total_amount: orderData.totalAmount || orderData.total_amount || 0,
+          prep_eta_minutes: orderData.prepEta || orderData.etaMinutes || orderData.prep_eta_minutes || 10,
+          created_at: new Date().toISOString(),
+          order_items: (orderData.items || orderData.order_items || []).map((it: any) => ({
+            id: it.id || `item-${Math.random().toString(36).slice(2)}`,
+            name: it.name || it.item_name,
+            item_name: it.name || it.item_name,
+            quantity: it.quantity || 1,
+            price: it.price || 0,
+          })),
+        };
+        return [formatted, ...prev];
+      });
+      setTimeout(fetchData, 600);
+    };
+
+    const handleCustomEvent = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        handleNewOrder(customEvent.detail);
+      }
+    };
+
+    // 1. Same-window custom event
+    window.addEventListener('vaani-order-created', handleCustomEvent);
+
+    // 2. Cross-tab localStorage storage event (0ms instant cross-tab sync)
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'vaani_last_order' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          handleNewOrder(parsed);
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+
+    // 3. Cross-tab BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('vaani-orders');
+        bc.onmessage = (e) => {
+          if (e.data) {
+            handleNewOrder(e.data);
+          }
+        };
+      }
+    } catch (_) {}
+
+    // 4. Initial check for any recently placed order
+    try {
+      const last = localStorage.getItem('vaani_last_order');
+      if (last) {
+        const parsed = JSON.parse(last);
+        if (Date.now() - (parsed._ts || 0) < 60000) {
+          handleNewOrder(parsed);
+        }
+      }
+    } catch (_) {}
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('vaani-order-created', handleCustomEvent);
+      window.removeEventListener('storage', handleStorageEvent);
+      if (bc) bc.close();
+    };
+  }, [fetchData, playKitchenChime]);
 
   // Advance order status: Received -> Preparing -> Ready -> Completed
   const advanceOrderStatus = async (orderId: string, currentStatus: string) => {
@@ -199,20 +254,21 @@ export default function LiveOperationsPage() {
       });
     }
 
-    // Attempt real database update
-    if (currentProperty && !orderId.startsWith('demo-')) {
-      await supabase
-        .from('orders')
-        .update({ status: next, updated_at: new Date().toISOString() })
-        .eq('id', orderId);
-      fetchData();
-    } else {
-      // Optimistic in-memory update for instant feedback
-      setOrders((prev) =>
-        prev
-          .map((o) => (o.id === orderId ? { ...o, status: next } : o))
-          .filter((o) => o.status !== 'completed')
-      );
+    // Optimistic in-memory update for instant feedback
+    setOrders((prev) =>
+      prev
+        .map((o) => (o.id === orderId ? { ...o, status: next } : o))
+        .filter((o) => o.status !== 'completed')
+    );
+
+    // Database update via kitchen API
+    if (!orderId.startsWith('demo-')) {
+      await fetch('/api/kitchen/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: next }),
+      }).catch((e) => console.warn('PATCH /api/kitchen/orders failed:', e));
+      setTimeout(fetchData, 800);
     }
   };
 
@@ -278,7 +334,7 @@ export default function LiveOperationsPage() {
     if (stationFilter === 'all') return orders;
     return orders.filter((o) => {
       const notes = (o.station || o.notes || '').toLowerCase();
-      const items = (o.order_items || []).map((i: any) => i.name.toLowerCase()).join(' ');
+      const items = (o.order_items || []).map((i: any) => (i?.name || i?.item_name || '').toLowerCase()).join(' ');
       if (stationFilter === 'drinks') {
         return notes.includes('drink') || items.includes('coffee') || items.includes('chai') || items.includes('kaapi');
       }
@@ -396,13 +452,13 @@ export default function LiveOperationsPage() {
               </h2>
             </div>
             <span className="text-xs font-bold text-cafe-espresso/60 font-mono">
-              {filteredOrders.filter((o) => o.status === 'received').length}
+              {filteredOrders.filter((o) => o.status === 'received' || o.status === 'confirmed').length}
             </span>
           </div>
 
           <div className="space-y-3">
             {filteredOrders
-              .filter((o) => o.status === 'received')
+              .filter((o) => o.status === 'received' || o.status === 'confirmed')
               .map((order) => (
                 <KitchenTicketCard
                   key={order.id}
@@ -411,7 +467,7 @@ export default function LiveOperationsPage() {
                 />
               ))}
 
-            {filteredOrders.filter((o) => o.status === 'received').length === 0 && (
+            {filteredOrders.filter((o) => o.status === 'received' || o.status === 'confirmed').length === 0 && (
               <EmptyColumnPlaceholder text="No new incoming tickets" />
             )}
           </div>
@@ -501,35 +557,36 @@ export default function LiveOperationsPage() {
           </p>
 
           <div className="grid sm:grid-cols-2 gap-3">
-            {[
-              { name: 'South Indian Filter Kaapi', status: 'available', price: 40 },
-              { name: 'Golden Samosa', status: 'available', price: 50 },
-              { name: 'Irani Bun Maska', status: 'available', price: 60 },
-              { name: 'Veg Puff (Bakery)', status: 'unavailable', price: 35 },
-            ].map((item, idx) => (
-              <div
-                key={idx}
-                className={`p-3.5 rounded-2xl border flex items-center justify-between ${
-                  item.status === 'available'
-                    ? 'bg-cafe-cream/50 border-cafe-sand'
-                    : 'bg-destructive/5 border-destructive/30'
-                }`}
-              >
-                <div>
-                  <div className="text-xs font-bold text-cafe-espresso">{item.name}</div>
-                  <div className="text-[11px] text-cafe-espresso/60 font-mono">₹{item.price}</div>
-                </div>
-                <Badge
-                  className={`text-[10px] uppercase font-bold ${
+            {stockAlerts.length > 0 ? (
+              stockAlerts.map((item, idx) => (
+                <div
+                  key={item.id || idx}
+                  className={`p-3.5 rounded-2xl border flex items-center justify-between ${
                     item.status === 'available'
-                      ? 'bg-cafe-leaf/20 text-cafe-leaf hover:bg-cafe-leaf/30'
-                      : 'bg-destructive/20 text-destructive'
+                      ? 'bg-cafe-cream/50 border-cafe-sand'
+                      : 'bg-destructive/5 border-destructive/30'
                   }`}
                 >
-                  {item.status}
-                </Badge>
+                  <div>
+                    <div className="text-xs font-bold text-cafe-espresso">{item.name}</div>
+                    <div className="text-[11px] text-cafe-espresso/60 font-mono">₹{item.price}</div>
+                  </div>
+                  <Badge
+                    className={`text-[10px] uppercase font-bold ${
+                      item.status === 'available'
+                        ? 'bg-cafe-leaf/20 text-cafe-leaf hover:bg-cafe-leaf/30'
+                        : 'bg-destructive/20 text-destructive'
+                    }`}
+                  >
+                    {item.status}
+                  </Badge>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-2 text-xs text-cafe-espresso/50 py-3 text-center">
+                All menu items in stock in PostgreSQL database.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -543,38 +600,28 @@ export default function LiveOperationsPage() {
               </h3>
             </div>
             <Badge className="bg-cafe-leaf/20 text-cafe-leaf border-0 text-xs font-bold">
-              100% Delivered
+              AWS RDS Synced
             </Badge>
           </div>
 
-          <div className="space-y-2.5">
-            {[
-              {
-                to: '+91 98765 43210',
-                text: 'Order #ORD-104 confirmed. 2x Samosa, 1x Kaapi. Prep ETA: 12m. Total: ₹140.',
-                time: '2m ago',
-              },
-              {
-                to: '+91 98480 12345',
-                text: 'Order #ORD-105: Bun Maska & Cold Coffee is READY at Cafe Vaani counter!',
-                time: '6m ago',
-              },
-              {
-                to: '+91 94401 56789',
-                text: 'Order #ORD-103 completed. Thank you for dining with Cafe Vaani!',
-                time: '18m ago',
-              },
-            ].map((msg, idx) => (
-              <div key={idx} className="p-3 rounded-2xl bg-cafe-sand/40 border border-cafe-sand text-xs flex justify-between items-start">
-                <div className="space-y-0.5">
-                  <span className="font-bold font-mono text-cafe-espresso">{msg.to}</span>
-                  <p className="text-[11px] text-cafe-espresso/70 leading-relaxed">{msg.text}</p>
+          <div className="space-y-2.5 max-h-60 overflow-y-auto">
+            {smsLogs.length > 0 ? (
+              smsLogs.map((msg, idx) => (
+                <div key={idx} className="p-3 rounded-2xl bg-cafe-sand/40 border border-cafe-sand text-xs flex justify-between items-start">
+                  <div className="space-y-0.5">
+                    <span className="font-bold font-mono text-cafe-espresso">{msg.to}</span>
+                    <p className="text-[11px] text-cafe-espresso/70 leading-relaxed">{msg.text}</p>
+                  </div>
+                  <span className="text-[10px] font-mono text-cafe-espresso/50 flex-shrink-0 ml-2">
+                    {msg.time}
+                  </span>
                 </div>
-                <span className="text-[10px] font-mono text-cafe-espresso/50 flex-shrink-0 ml-2">
-                  {msg.time}
-                </span>
+              ))
+            ) : (
+              <div className="text-xs text-cafe-espresso/50 py-4 text-center">
+                No SMS notifications sent yet today.
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -644,7 +691,7 @@ function KitchenTicketCard({ order, onAdvance }: { order: any; onAdvance: () => 
                   <span className="w-5 h-5 rounded-lg bg-cafe-espresso text-white flex items-center justify-center text-[10px] font-mono">
                     {item.quantity}x
                   </span>
-                  <span>{item.name}</span>
+                  <span>{item.name || item.item_name}</span>
                 </span>
                 <span className="font-mono text-cafe-espresso/70">
                   ₹{(item.price || 0) * (item.quantity || 1)}

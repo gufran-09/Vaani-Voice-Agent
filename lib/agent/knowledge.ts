@@ -80,6 +80,11 @@ export function buildScopedSystemPrompt(propertyId: string, contextQuery?: strin
     sections.push('## Guest Rules & Language Nuances\n' + docs.guestRules);
   }
 
+  // Menu guidelines & categories
+  if (docs.menuGuidelines) {
+    sections.push('## Live Cafe Menu Categories & Highlights\n' + docs.menuGuidelines);
+  }
+
   // Ordering policies
   if (docs.orderingPolicy) {
     sections.push('## Ordering & Confirmation Protocol\n' + docs.orderingPolicy);

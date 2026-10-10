@@ -30,8 +30,8 @@ export interface OllamaConverseResult {
 }
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
-const OLLAMA_TIMEOUT_MS = 6000;
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3.5:4b-q4_K_M';
+const OLLAMA_TIMEOUT_MS = 15000;
 
 /**
  * Checks if Ollama daemon is currently running on the host machine.
@@ -52,7 +52,7 @@ export async function isOllamaReachable(): Promise<boolean> {
 }
 
 /**
- * Sends a turn to local Ollama with Qwen 2.5 function-calling schemas.
+ * Sends a turn to local Ollama with Qwen function-calling schemas.
  */
 export async function converseWithOllama(
   messages: Array<{ role: string; content: any }>,
@@ -96,9 +96,13 @@ export async function converseWithOllama(
         messages: formattedMessages,
         tools: ollamaTools,
         stream: false,
+        think: false,
         options: {
-          temperature: 0.1,
+          temperature: 0.7,
           top_p: 0.9,
+          repeat_penalty: 1.15,
+          num_ctx: 2048,
+          num_predict: 120,
         },
       }),
       signal: controller.signal,
@@ -119,7 +123,7 @@ export async function converseWithOllama(
       for (const tc of assistantMessage.tool_calls) {
         contentBlocks.push({
           type: 'tool_use',
-          id: `ollama_tool_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          id: tc.id || `ollama_tool_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           name: tc.function.name,
           input: typeof tc.function.arguments === 'string'
             ? JSON.parse(tc.function.arguments)
@@ -129,10 +133,15 @@ export async function converseWithOllama(
     }
 
     if (assistantMessage.content) {
-      contentBlocks.push({
-        type: 'text',
-        text: assistantMessage.content,
-      });
+      const cleanContent = assistantMessage.content
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .trim();
+      if (cleanContent) {
+        contentBlocks.push({
+          type: 'text',
+          text: cleanContent,
+        });
+      }
     }
 
     return {

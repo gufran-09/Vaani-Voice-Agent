@@ -24,8 +24,11 @@ export async function detectTTSMode(): Promise<TTSMode> {
       signal: AbortSignal.timeout(2000),
     });
     if (res.ok) {
-      currentMode = 'local';
-      return 'local';
+      const data = await res.json();
+      if (data.local_tts === true) {
+        currentMode = 'local';
+        return 'local';
+      }
     }
   } catch {
     // Local TTS not available — use browser fallback
@@ -118,8 +121,13 @@ function browserSpeak(text: string): Promise<void> {
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice =
       voices.find((v) => v.lang === 'en-IN') ||
+      voices.find((v) => v.lang.includes('IN')) ||
       voices.find((v) => v.lang === 'hi-IN') ||
-      voices.find((v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('india')) ||
+      voices.find((v) => v.name.toLowerCase().includes('india')) ||
+      voices.find((v) => v.name.toLowerCase().includes('heera')) ||
+      voices.find((v) => v.name.toLowerCase().includes('ravi')) ||
+      voices.find((v) => v.name.toLowerCase().includes('rishi')) ||
+      voices.find((v) => v.name.toLowerCase().includes('veena')) ||
       voices.find((v) => v.lang.startsWith('en'));
 
     if (preferredVoice) {

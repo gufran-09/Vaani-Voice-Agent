@@ -97,6 +97,12 @@ class QueryBuilder<T extends Row = Row> implements PromiseLike<any> {
     return this.execute().then(onfulfilled, onrejected);
   }
 
+  catch<TResult = never>(
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null,
+  ): PromiseLike<ApiResponse<T[]> | TResult> {
+    return this.execute().catch(onrejected);
+  }
+
   private async execute(): Promise<ApiResponse<T[]>> {
     try {
       const response = await fetch('/api/data', {

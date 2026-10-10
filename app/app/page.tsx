@@ -35,54 +35,39 @@ export default function AppOverviewPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      if (currentProperty) {
-        const today = new Date().toISOString().split('T')[0];
-        try {
-          const [orders, reservations, guestRequests, calls] = await Promise.all([
-            supabase.from('orders').select('*').eq('property_id', currentProperty.id).order('created_at', { ascending: false }).limit(10),
-            supabase.from('reservations').select('*').eq('property_id', currentProperty.id).eq('reservation_date', today),
-            supabase.from('guest_requests').select('*').eq('property_id', currentProperty.id).in('status', ['open', 'assigned', 'in_progress']),
-            supabase.from('calls').select('*').eq('property_id', currentProperty.id).order('started_at', { ascending: false }).limit(10),
-          ]);
+      const propId = currentProperty?.id || '62e1b115-9382-40f8-853a-0a773735d034';
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        const [orders, reservations, guestRequests, calls] = await Promise.all([
+          supabase.from('orders').select('*').eq('property_id', propId).order('created_at', { ascending: false }).limit(10),
+          supabase.from('reservations').select('*').eq('property_id', propId).eq('reservation_date', today),
+          supabase.from('guest_requests').select('*').eq('property_id', propId).in('status', ['open', 'assigned', 'in_progress']),
+          supabase.from('calls').select('*').eq('property_id', propId).order('started_at', { ascending: false }).limit(10),
+        ]);
 
-          const allOrders = orders.data ?? [];
-          const active = allOrders.filter((o: any) => ['received', 'preparing', 'ready'].includes(o.status));
-          const completed = allOrders.filter((o: any) => o.status === 'completed');
-          const allCalls = calls.data ?? [];
-          const transfers = allCalls.filter((c: any) => c.outcome === 'human_transfer');
-          const totalRev = completed.reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0);
+        const allOrders = orders.data ?? [];
+        const active = allOrders.filter((o: any) => ['received', 'preparing', 'ready'].includes(o.status));
+        const completed = allOrders.filter((o: any) => o.status === 'completed');
+        const allCalls = calls.data ?? [];
+        const transfers = allCalls.filter((c: any) => c.outcome === 'human_transfer');
+        const totalRev = completed.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
 
-          if (allOrders.length > 0 || allCalls.length > 0) {
-            setStats({
-              activeOrders: active.length,
-              todayReservations: reservations.data?.length ?? 0,
-              openGuestRequests: guestRequests.data?.length ?? 0,
-              todayCalls: allCalls.length,
-              completedOrders: completed.length,
-              humanTransfers: transfers.length,
-              voiceRevenue: totalRev > 0 ? totalRev : 4850,
-            });
-            setRecentOrders(active.slice(0, 5));
-            setRecentCalls(allCalls.slice(0, 5));
-            setLoading(false);
-            return;
-          }
-        } catch {
-          // Fallback to demo numbers
-        }
+        setStats({
+          activeOrders: active.length,
+          todayReservations: reservations.data?.length ?? 0,
+          openGuestRequests: guestRequests.data?.length ?? 0,
+          todayCalls: allCalls.length,
+          completedOrders: completed.length,
+          humanTransfers: transfers.length,
+          voiceRevenue: totalRev,
+        });
+        setRecentOrders(active.slice(0, 5));
+        setRecentCalls(allCalls.slice(0, 5));
+      } catch (e) {
+        console.warn('Dashboard fetch error from RDS:', e);
+        setRecentOrders([]);
+        setRecentCalls([]);
       }
-
-      // Default demo stats for hackathon presentation
-      setRecentOrders([
-        { id: 'o-1', order_number: 'ORD-104', customer_name: 'Rohan Sharma', total_amount: 140, channel: 'voice_telugu_hindi', status: 'received' },
-        { id: 'o-2', order_number: 'ORD-105', customer_name: 'Ananya Rao', total_amount: 180, channel: 'voice_english', status: 'preparing' },
-        { id: 'o-3', order_number: 'ORD-106', customer_name: 'Vikram Mehta', total_amount: 110, channel: 'voice_hindi', status: 'ready' },
-      ]);
-      setRecentCalls([
-        { id: 'c-1', language: 'Telugu + English', duration_seconds: 48, status: 'completed', outcome: 'order_placed', caller: '+91 98765 43210' },
-        { id: 'c-2', language: 'Hindi + English', duration_seconds: 64, status: 'completed', outcome: 'order_placed', caller: '+91 98480 12345' },
-        { id: 'c-3', language: 'Indian English', duration_seconds: 35, status: 'completed', outcome: 'info_provided', caller: '+91 94401 56789' },
-      ]);
       setLoading(false);
     })();
   }, [currentProperty]);

@@ -53,8 +53,14 @@ export async function POST(req: NextRequest) {
 
   // No local TTS configured — client will use browser speechSynthesis
   return NextResponse.json(
-    { error: 'Local TTS not configured. Client should use browser speechSynthesis fallback.' },
-    { status: 503 },
+    {
+      status: 'ok',
+      engine: 'browser-speechSynthesis',
+      local_tts: false,
+      useBrowserSpeech: true,
+      message: 'Local TTS not configured. Spoken audio handled by browser window.speechSynthesis.',
+    },
+    { status: 200 },
   );
 }
 
@@ -66,15 +72,21 @@ export async function GET() {
       });
       if (res.ok) {
         const data = await res.json();
-        return NextResponse.json({ status: 'ok', engine: data });
+        return NextResponse.json({ status: 'ok', engine: data, local_tts: true });
       }
     } catch {
-      return NextResponse.json({ status: 'tts_unreachable' }, { status: 503 });
+      return NextResponse.json({ status: 'tts_unreachable', local_tts: false }, { status: 503 });
     }
   }
 
   return NextResponse.json(
-    { status: 'not_configured', fallback: 'browser-speechSynthesis' },
-    { status: 503 },
+    {
+      status: 'ok',
+      engine: 'browser-speechSynthesis',
+      local_tts: false,
+      fallback: 'browser-speechSynthesis',
+    },
+    { status: 200 },
   );
 }
+

@@ -19,15 +19,16 @@ const SAFETY_BUFFER_MINUTES = 2;
 export async function getEta(propertyId: string, itemIds: string[]): Promise<number> {
   if (itemIds.length === 0) return 0;
 
-  // 1. Fetch base prep times + station info for ordered items
-  const itemRes = await query<{ id: string; prep_time_minutes: number; description: string }>(
-    `SELECT id, prep_time_minutes, COALESCE(description, '') as description
-     FROM menu_items
-     WHERE id = ANY($1::uuid[]) AND property_id = $2`,
-    [itemIds, propertyId],
-  );
+  try {
+    // 1. Fetch base prep times + station info for ordered items
+    const itemRes = await query<{ id: string; prep_time_minutes: number; description: string }>(
+      `SELECT id, prep_time_minutes, COALESCE(description, '') as description
+       FROM menu_items
+       WHERE id = ANY($1::uuid[]) AND property_id = $2`,
+      [itemIds, propertyId],
+    );
 
-  if (itemRes.rows.length === 0) return 15; // safe default
+    if (itemRes.rows.length === 0) return 10; // safe default
 
   // Extract stations from description (encoded as "station:drinks|...")
   const stationsInOrder = new Set<string>();
@@ -62,4 +63,7 @@ export async function getEta(propertyId: string, itemIds: string[]): Promise<num
 
   const eta = maxBasePrep + (backlog * STATION_THROUGHPUT_MINUTES) + SAFETY_BUFFER_MINUTES;
   return Math.min(eta, 45); // cap at 45 min
+  } catch {
+    return 10; // Safe fallback ETA when database is offline
+  }
 }

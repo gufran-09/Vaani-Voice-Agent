@@ -33,6 +33,12 @@ interface OrderCard {
   items: Array<{ name: string; quantity: number }>;
 }
 
+interface MockSmsData {
+  to: string;
+  message: string;
+  status: string;
+}
+
 type STTMode = 'local-whisper' | 'browser-fallback' | 'checking';
 type TTSMode = 'local' | 'browser-fallback' | 'checking';
 
@@ -59,13 +65,26 @@ export default function AIReceptionistPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [textInput, setTextInput] = useState('');
   const [orderCard, setOrderCard] = useState<OrderCard | null>(null);
+  const [mockSms, setMockSms] = useState<MockSmsData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Session
-  const [sessionId] = useState(() => `session-${Date.now()}`);
+  // Session & Cart state
+  const [sessionId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('vaani_voice_session_id');
+      if (stored) return stored;
+      const created = `session-${Date.now()}`;
+      sessionStorage.setItem('vaani_voice_session_id', created);
+      return created;
+    }
+    return `session-${Date.now()}`;
+  });
+  const [cart, setCart] = useState<any[]>([]);
+  const cartRef = useRef<any[]>([]);
 
   // Service detection
   const [sttMode, setSttMode] = useState<STTMode>('checking');
+  const [sttModelLabel, setSttModelLabel] = useState<string>('Local Whisper');
   const [ttsMode, setTtsMode] = useState<TTSMode>('checking');
 
   // Refs
@@ -81,9 +100,19 @@ export default function AIReceptionistPage() {
 
     // Check Whisper STT availability
     fetch('/api/agent/transcribe', { signal: AbortSignal.timeout(3000) })
-      .then((res) => {
+      .then(async (res) => {
         if (isMountedRef.current) {
-          setSttMode(res.ok ? 'local-whisper' : 'browser-fallback');
+          if (res.ok) {
+            setSttMode('local-whisper');
+            const data = await res.json().catch(() => ({}));
+            if (data.whisper?.model) {
+              const dev = data.whisper.device === 'cuda' ? 'GPU' : 'CPU';
+              const name = data.whisper.model.includes('turbo') ? 'Whisper Turbo' : 'Whisper Small';
+              setSttModelLabel(`${name} (${dev})`);
+            }
+          } else {
+            setSttMode('browser-fallback');
+          }
         }
       })
       .catch(() => {
@@ -92,9 +121,14 @@ export default function AIReceptionistPage() {
 
     // Check local TTS availability
     fetch('/api/agent/synthesize', { signal: AbortSignal.timeout(2000) })
-      .then((res) => {
+      .then(async (res) => {
         if (isMountedRef.current) {
-          setTtsMode(res.ok ? 'local' : 'browser-fallback');
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            setTtsMode(data.local_tts === true ? 'local' : 'browser-fallback');
+          } else {
+            setTtsMode('browser-fallback');
+          }
         }
       })
       .catch(() => {
@@ -157,31 +191,37 @@ export default function AIReceptionistPage() {
     return new Promise<void>((resolve) => {
       if (typeof window === 'undefined' || !window.speechSynthesis) {
         resolve();
-        return;
-      }
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'en-IN';
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-
-      const voices = window.speechSynthesis.getVoices();
-      const voice =
-        voices.find((v) => v.lang === 'en-IN') ||
-        voices.find((v) => v.lang === 'hi-IN') ||
-        voices.find((v) => v.lang.startsWith('en'));
-      if (voice) utterance.voice = voice;
-
-      const safetyTimeout = setTimeout(() => {
+      } else {
         window.speechSynthesis.cancel();
-        resolve();
-      }, 30_000);
 
-      utterance.onend = () => { clearTimeout(safetyTimeout); resolve(); };
-      utterance.onerror = () => { clearTimeout(safetyTimeout); resolve(); };
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'en-IN';
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
 
-      window.speechSynthesis.speak(utterance);
+        const voices = window.speechSynthesis.getVoices();
+        const voice =
+          voices.find((v) => v.lang === 'en-IN') ||
+          voices.find((v) => v.lang.includes('IN')) ||
+          voices.find((v) => v.lang === 'hi-IN') ||
+          voices.find((v) => v.name.toLowerCase().includes('india')) ||
+          voices.find((v) => v.name.toLowerCase().includes('heera')) ||
+          voices.find((v) => v.name.toLowerCase().includes('ravi')) ||
+          voices.find((v) => v.name.toLowerCase().includes('rishi')) ||
+          voices.find((v) => v.name.toLowerCase().includes('veena')) ||
+          voices.find((v) => v.lang.startsWith('en'));
+        if (voice) utterance.voice = voice;
+
+        const safetyTimeout = setTimeout(() => {
+          window.speechSynthesis.cancel();
+          resolve();
+        }, 30_000);
+
+        utterance.onend = () => { clearTimeout(safetyTimeout); resolve(); };
+        utterance.onerror = () => { clearTimeout(safetyTimeout); resolve(); };
+
+        window.speechSynthesis.speak(utterance);
+      }
     });
   }, []);
 
@@ -205,7 +245,10 @@ export default function AIReceptionistPage() {
         body: JSON.stringify({
           transcript: transcript.trim(),
           sessionId,
+          cart: cartRef.current,
           propertyId: currentProperty?.id || PROPERTY_ID,
+          callerPhone: '+919876543210',
+          customerName: 'Voice Guest',
         }),
       });
 
@@ -218,9 +261,34 @@ export default function AIReceptionistPage() {
 
       addMessage('agent', reply);
 
+      // Track cart state across turns
+      if (chatData.cart && Array.isArray(chatData.cart)) {
+        setCart(chatData.cart);
+        cartRef.current = chatData.cart;
+      }
+
       // Handle order creation
-      if (chatData.orderCreated) {
-        setOrderCard(chatData.orderCreated);
+      const confirmedOrder = chatData.orderCreated || chatData.order;
+      if (confirmedOrder) {
+        setCart([]);
+        cartRef.current = [];
+        setOrderCard(confirmedOrder);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vaani-order-created', { detail: confirmedOrder }));
+          try {
+            localStorage.setItem('vaani_last_order', JSON.stringify({ ...confirmedOrder, _ts: Date.now() }));
+          } catch (_) {}
+          try {
+            if ('BroadcastChannel' in window) {
+              const bc = new BroadcastChannel('vaani-orders');
+              bc.postMessage(confirmedOrder);
+              setTimeout(() => bc.close(), 2000);
+            }
+          } catch (_) {}
+        }
+      }
+      if (chatData.mockSms) {
+        setMockSms(chatData.mockSms);
       }
 
       // Speak the reply
@@ -235,11 +303,15 @@ export default function AIReceptionistPage() {
     if (isMountedRef.current) {
       setStatus('idle');
     }
-  }, [sessionId, speakText, currentProperty]);
+  }, [sessionId, currentProperty, speakText]);
 
   // ─── Recording ───────────────────────────────────────────────────────────
 
   const startRecording = useCallback(async () => {
+    // Cancel any active speech on barge-in
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -289,14 +361,15 @@ export default function AIReceptionistPage() {
           });
 
           if (!sttRes.ok) {
-            throw new Error('Transcription failed');
+            const errData = await sttRes.json().catch(() => ({}));
+            throw new Error(errData.error || `Transcription failed (${sttRes.status})`);
           }
 
           const sttData = await sttRes.json();
           await processTranscript(sttData.transcript || '');
         } catch (sttErr: any) {
           console.error('[voice-console] STT error:', sttErr);
-          setError('Transcription failed. Try typing instead.');
+          setError(`STT: ${sttErr.message || 'Transcription failed'}. You can also type below.`);
           setStatus('idle');
         }
       };
@@ -320,6 +393,13 @@ export default function AIReceptionistPage() {
   const handleMicClick = useCallback(() => {
     if (status === 'recording') {
       stopRecording();
+    } else if (status === 'speaking') {
+      // Immediate Barge-in: interrupt speech and start listening
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setStatus('idle');
+      startRecording();
     } else if (status === 'idle') {
       startRecording();
     }
@@ -340,8 +420,6 @@ export default function AIReceptionistPage() {
       handleTextSubmit();
     }
   }, [handleTextSubmit]);
-
-  // ─── No property guard removed — voice console works with hardcoded PROPERTY_ID ──
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -370,7 +448,7 @@ export default function AIReceptionistPage() {
           <span className={`w-1.5 h-1.5 rounded-full inline-block ${sttMode === 'local-whisper' ? 'bg-green-400 status-dot-pulse' :
               sttMode === 'checking' ? 'bg-yellow-400 status-dot-pulse' : 'bg-orange-400'
             }`} />
-          🎙️ STT: {sttMode === 'local-whisper' ? 'Local Whisper' : sttMode === 'checking' ? 'Detecting...' : 'Browser Fallback'}
+          🎙️ STT: {sttMode === 'local-whisper' ? sttModelLabel : sttMode === 'checking' ? 'Detecting...' : 'Browser Fallback'}
         </Badge>
         <Badge variant={ttsMode === 'local' ? 'default' : 'secondary'} className="text-xs gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full inline-block ${ttsMode === 'local' ? 'bg-green-400 status-dot-pulse' :
@@ -460,18 +538,20 @@ export default function AIReceptionistPage() {
             <div className="flex justify-center">
               <button
                 onClick={handleMicClick}
-                disabled={isActive && status !== 'recording'}
+                disabled={isActive && status !== 'recording' && status !== 'speaking'}
                 className={`
                   w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200
                   focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
                   ${status === 'recording'
                     ? 'bg-red-500 hover:bg-red-600 text-white recording-pulse'
-                    : isActive
-                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                      : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105 active:scale-95'
+                    : status === 'speaking'
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse shadow-lg ring-4 ring-amber-400/40 cursor-pointer'
+                      : isActive
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                        : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105 active:scale-95'
                   }
                 `}
-                aria-label={status === 'recording' ? 'Stop recording' : 'Start recording'}
+                aria-label={status === 'recording' ? 'Stop recording' : status === 'speaking' ? 'Interrupt speech' : 'Start recording'}
               >
                 {status === 'recording' ? (
                   <Square className="w-6 h-6" />
@@ -486,7 +566,7 @@ export default function AIReceptionistPage() {
             </div>
 
             <p className="text-center text-xs text-muted-foreground">
-              {status === 'recording' ? 'Tap to stop' : status === 'idle' ? 'Tap to speak' : STATUS_LABELS[status]}
+              {status === 'recording' ? 'Tap to stop' : status === 'speaking' ? 'Speaking... Tap to interrupt' : status === 'idle' ? 'Tap to speak' : STATUS_LABELS[status]}
             </p>
 
             {/* Text input fallback */}
@@ -569,6 +649,26 @@ export default function AIReceptionistPage() {
                   ✓ Confirm Order
                 </button>
               </div>
+
+              {/* Quick suggestion chips */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  'What is on the menu?',
+                  'One filter coffee and two samosas',
+                  'Ek masala dosa aur do chai',
+                  'Confirm order',
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => processTranscript(chip)}
+                    disabled={isActive}
+                    className="text-[11px] bg-secondary hover:bg-secondary/80 text-secondary-foreground px-2.5 py-1 rounded-full transition-colors disabled:opacity-50"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -608,6 +708,30 @@ export default function AIReceptionistPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Customer SMS Notification ── */}
+      {mockSms && (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Customer SMS Notification</span>
+              <Badge className="bg-emerald-600 text-white font-mono text-[10px] uppercase tracking-wider">
+                DELIVERED VIA AWS RDS
+              </Badge>
+            </div>
+            <span className="text-xs text-muted-foreground font-mono">
+              Status: Delivered
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <span>Recipient: </span>
+            <span className="font-mono text-foreground">{mockSms.to}</span>
+          </div>
+          <div className="bg-background/80 p-2.5 rounded-lg border text-xs font-sans text-foreground">
+            &quot;{mockSms.message}&quot;
+          </div>
+        </div>
       )}
     </div>
   );

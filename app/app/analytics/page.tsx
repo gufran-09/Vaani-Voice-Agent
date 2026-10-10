@@ -86,50 +86,19 @@ interface PopularItem {
   revenue: number;
 }
 
-const DEMO_ANALYTICS_ORDERS: Order[] = [
-  { id: 'o1', property_id: 'p1', order_number: 'ORD-101', customer_name: 'Amit Patel', customer_phone: '+91 98111 22233', channel: 'voice', status: 'completed', total_amount: 140, notes: null, prep_eta_minutes: 10, created_at: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date().toISOString() },
-  { id: 'o2', property_id: 'p1', order_number: 'ORD-102', customer_name: 'Pooja Nair', customer_phone: '+91 98222 33344', channel: 'voice', status: 'completed', total_amount: 220, notes: null, prep_eta_minutes: 12, created_at: new Date(Date.now() - 172800000).toISOString(), updated_at: new Date().toISOString() },
-  { id: 'o3', property_id: 'p1', order_number: 'ORD-103', customer_name: 'Rohan Sharma', customer_phone: '+91 98333 44455', channel: 'voice', status: 'completed', total_amount: 180, notes: null, prep_eta_minutes: 8, created_at: new Date(Date.now() - 259200000).toISOString(), updated_at: new Date().toISOString() },
-  { id: 'o4', property_id: 'p1', order_number: 'ORD-104', customer_name: 'Sneha Rao', customer_phone: '+91 98444 55566', channel: 'voice', status: 'preparing', total_amount: 160, notes: null, prep_eta_minutes: 14, created_at: new Date(Date.now() - 345600000).toISOString(), updated_at: new Date().toISOString() },
-  { id: 'o5', property_id: 'p1', order_number: 'ORD-105', customer_name: 'Karan Singh', customer_phone: '+91 98555 66677', channel: 'voice', status: 'received', total_amount: 90, notes: null, prep_eta_minutes: 10, created_at: new Date(Date.now() - 432000000).toISOString(), updated_at: new Date().toISOString() },
-  { id: 'o6', property_id: 'p1', order_number: 'ORD-106', customer_name: 'Deepa Verma', customer_phone: '+91 98666 77788', channel: 'voice', status: 'ready', total_amount: 250, notes: null, prep_eta_minutes: 15, created_at: new Date(Date.now() - 518400000).toISOString(), updated_at: new Date().toISOString() },
-];
-
-const DEMO_ANALYTICS_CALLS: Call[] = [
-  { id: 'c1', property_id: 'p1', caller_phone: '+91 98111 22233', status: 'completed', outcome: 'order_placed', duration_seconds: 52, language: 'Telugu + English', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 86400000).toISOString(), ended_at: new Date().toISOString() },
-  { id: 'c2', property_id: 'p1', caller_phone: '+91 98222 33344', status: 'completed', outcome: 'order_placed', duration_seconds: 68, language: 'Hindi + English', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 172800000).toISOString(), ended_at: new Date().toISOString() },
-  { id: 'c3', property_id: 'p1', caller_phone: '+91 98333 44455', status: 'completed', outcome: 'info_provided', duration_seconds: 40, language: 'Indian English', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 259200000).toISOString(), ended_at: new Date().toISOString() },
-  { id: 'c4', property_id: 'p1', caller_phone: '+91 98444 55566', status: 'completed', outcome: 'order_placed', duration_seconds: 45, language: 'Telugu', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 345600000).toISOString(), ended_at: new Date().toISOString() },
-  { id: 'c5', property_id: 'p1', caller_phone: '+91 98555 66677', status: 'completed', outcome: 'human_transfer', duration_seconds: 90, language: 'Hindi', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 432000000).toISOString(), ended_at: new Date().toISOString() },
-];
-
-const DEMO_ANALYTICS_ORDER_ITEMS: OrderItem[] = [
-  { id: 'oi1', order_id: 'o1', menu_item_id: 'm1', name: 'South Indian Filter Kaapi', quantity: 42, price: 40, notes: null },
-  { id: 'oi2', order_id: 'o1', menu_item_id: 'm2', name: 'Golden Crispy Samosa', quantity: 38, price: 50, notes: null },
-  { id: 'oi3', order_id: 'o2', menu_item_id: 'm3', name: 'Irani Bun Maska', quantity: 29, price: 60, notes: null },
-  { id: 'oi4', order_id: 'o2', menu_item_id: 'm4', name: 'Tawa Masala Dosa', quantity: 22, price: 90, notes: null },
-  { id: 'oi5', order_id: 'o3', menu_item_id: 'm5', name: 'Cutting Masala Chai', quantity: 35, price: 25, notes: null },
-];
-
 export default function AnalyticsPage() {
   const { currentProperty } = useApp();
-  const [orders, setOrders] = useState<Order[]>(DEMO_ANALYTICS_ORDERS);
-  const [calls, setCalls] = useState<Call[]>(DEMO_ANALYTICS_CALLS);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [calls, setCalls] = useState<Call[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [guestRequests, setGuestRequests] = useState<GuestRequest[]>([]);
-  const [orderItems, setOrderItems] = useState<OrderItem[]>(DEMO_ANALYTICS_ORDER_ITEMS);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>('30');
 
   const fetchAnalytics = useCallback(async () => {
-    if (!currentProperty) {
-      setOrders(DEMO_ANALYTICS_ORDERS);
-      setCalls(DEMO_ANALYTICS_CALLS);
-      setOrderItems(DEMO_ANALYTICS_ORDER_ITEMS);
-      setLoading(false);
-      return;
-    }
+    const propId = currentProperty?.id || '62e1b115-9382-40f8-853a-0a773735d034';
     setLoading(true);
     setError(null);
 
@@ -140,25 +109,25 @@ export default function AnalyticsPage() {
         supabase
           .from('orders')
           .select('*')
-          .eq('property_id', currentProperty.id)
+          .eq('property_id', propId)
           .gte('created_at', since)
           .order('created_at', { ascending: false }),
         supabase
           .from('calls')
           .select('*')
-          .eq('property_id', currentProperty.id)
+          .eq('property_id', propId)
           .gte('started_at', since)
           .order('started_at', { ascending: false }),
         supabase
           .from('reservations')
           .select('*')
-          .eq('property_id', currentProperty.id)
+          .eq('property_id', propId)
           .gte('created_at', since)
           .order('created_at', { ascending: false }),
         supabase
           .from('guest_requests')
           .select('*')
-          .eq('property_id', currentProperty.id)
+          .eq('property_id', propId)
           .gte('created_at', since)
           .order('created_at', { ascending: false }),
       ]);
@@ -166,29 +135,26 @@ export default function AnalyticsPage() {
       const fetchedOrders = (ordersRes.data ?? []) as Order[];
       const fetchedCalls = (callsRes.data ?? []) as Call[];
 
-      if (fetchedOrders.length > 0 || fetchedCalls.length > 0) {
-        setOrders(fetchedOrders);
-        setCalls(fetchedCalls);
-        setReservations(reservationsRes.data ?? []);
-        setGuestRequests(guestRequestsRes.data ?? []);
+      setOrders(fetchedOrders);
+      setCalls(fetchedCalls);
+      setReservations(reservationsRes.data ?? []);
+      setGuestRequests(guestRequestsRes.data ?? []);
 
-        const orderIds = fetchedOrders.map((o) => o.id);
-        if (orderIds.length > 0) {
-          const { data: items } = await supabase
-            .from('order_items')
-            .select('*')
-            .in('order_id', orderIds);
-          setOrderItems((items ?? []) as OrderItem[]);
-        }
+      const orderIds = fetchedOrders.map((o) => o.id);
+      if (orderIds.length > 0) {
+        const { data: items } = await supabase
+          .from('order_items')
+          .select('*')
+          .in('order_id', orderIds);
+        setOrderItems((items ?? []) as OrderItem[]);
       } else {
-        setOrders(DEMO_ANALYTICS_ORDERS);
-        setCalls(DEMO_ANALYTICS_CALLS);
-        setOrderItems(DEMO_ANALYTICS_ORDER_ITEMS);
+        setOrderItems([]);
       }
-    } catch {
-      setOrders(DEMO_ANALYTICS_ORDERS);
-      setCalls(DEMO_ANALYTICS_CALLS);
-      setOrderItems(DEMO_ANALYTICS_ORDER_ITEMS);
+    } catch (e) {
+      console.warn('Analytics fetch error from RDS:', e);
+      setOrders([]);
+      setCalls([]);
+      setOrderItems([]);
     }
     setLoading(false);
   }, [currentProperty, dateRange]);

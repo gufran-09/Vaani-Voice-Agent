@@ -134,81 +134,9 @@ const ROLE_META: Record<
 
 /* ---------- component ---------- */
 
-const DEMO_CALLS: Call[] = [
-  {
-    id: 'call-1',
-    property_id: 'prop-1',
-    caller_phone: '+91 98765 43210',
-    status: 'completed',
-    outcome: 'order_placed',
-    duration_seconds: 52,
-    language: 'Telugu + English',
-    transcript_available: true,
-    recording_available: false,
-    started_at: new Date(Date.now() - 4 * 60000).toISOString(),
-    ended_at: new Date(Date.now() - 3 * 60000).toISOString(),
-  },
-  {
-    id: 'call-2',
-    property_id: 'prop-1',
-    caller_phone: '+91 98480 12345',
-    status: 'completed',
-    outcome: 'order_placed',
-    duration_seconds: 68,
-    language: 'Hindi + English',
-    transcript_available: true,
-    recording_available: false,
-    started_at: new Date(Date.now() - 12 * 60000).toISOString(),
-    ended_at: new Date(Date.now() - 11 * 60000).toISOString(),
-  },
-  {
-    id: 'call-3',
-    property_id: 'prop-1',
-    caller_phone: '+91 94401 56789',
-    status: 'completed',
-    outcome: 'order_placed',
-    duration_seconds: 40,
-    language: 'Indian English',
-    transcript_available: true,
-    recording_available: false,
-    started_at: new Date(Date.now() - 28 * 60000).toISOString(),
-    ended_at: new Date(Date.now() - 27 * 60000).toISOString(),
-  },
-  {
-    id: 'call-4',
-    property_id: 'prop-1',
-    caller_phone: '+91 99887 65432',
-    status: 'completed',
-    outcome: 'info_provided',
-    duration_seconds: 75,
-    language: 'Hindi',
-    transcript_available: true,
-    recording_available: false,
-    started_at: new Date(Date.now() - 45 * 60000).toISOString(),
-    ended_at: new Date(Date.now() - 44 * 60000).toISOString(),
-  },
-];
-
-const SAMPLE_TRANSCRIPTS: Record<string, ConversationMessage[]> = {
-  'call-1': [
-    { id: 'm1', call_id: 'call-1', role: 'agent', content: 'Namaskaram! Welcome to Cafe Vaani. What would you like to order today?', created_at: new Date(Date.now() - 4 * 60000).toISOString() },
-    { id: 'm2', call_id: 'call-1', role: 'caller', content: 'Namaskaram andi! Rendu Bun Maska and one degree filter kaapi parcel cheyyandi.', created_at: new Date(Date.now() - 3.8 * 60000).toISOString() },
-    { id: 'm3', call_id: 'call-1', role: 'agent', content: 'Chala baagundi! 2 Bun Maska mariyu 1 Filter Kaapi. Total amount is ₹160. Kitchen prep time 8 minutes andi. Shall I confirm this order for you?', created_at: new Date(Date.now() - 3.5 * 60000).toISOString() },
-    { id: 'm4', call_id: 'call-1', role: 'caller', content: 'Ha confirm cheyyandi. 10 mins lo vachi theesukunta.', created_at: new Date(Date.now() - 3.2 * 60000).toISOString() },
-    { id: 'm5', call_id: 'call-1', role: 'agent', content: 'Confirmed andi! Your ticket #ORD-105 is sent to the kitchen. SMS confirmation has been texted to your mobile number. Thank you!', created_at: new Date(Date.now() - 3 * 60000).toISOString() },
-  ],
-  'call-2': [
-    { id: 'm1', call_id: 'call-2', role: 'agent', content: 'Namaste! Cafe Vaani mein aapka swagat hai. Kya order karna chahenge?', created_at: new Date(Date.now() - 12 * 60000).toISOString() },
-    { id: 'm2', call_id: 'call-2', role: 'caller', content: 'Bhaiya do plate garam samosa aur ek filter coffee pack kar do.', created_at: new Date(Date.now() - 11.8 * 60000).toISOString() },
-    { id: 'm3', call_id: 'call-2', role: 'agent', content: 'Bilkul! 2 plate Golden Samosa aur 1 Filter Coffee. Total ₹140 hua. Fryer station par 10 minute lagenge. Order confirm karein?', created_at: new Date(Date.now() - 11.5 * 60000).toISOString() },
-    { id: 'm4', call_id: 'call-2', role: 'caller', content: 'Haan kar do. Green chutney thodi extra daalna.', created_at: new Date(Date.now() - 11.2 * 60000).toISOString() },
-    { id: 'm5', call_id: 'call-2', role: 'agent', content: 'Extra mint chutney note kar liya hai! Ticket #ORD-104 generate ho gaya hai aur SMS bhej diya hai.', created_at: new Date(Date.now() - 11 * 60000).toISOString() },
-  ],
-};
-
 export default function CallsPage() {
   const { currentProperty } = useApp();
-  const [calls, setCalls] = useState<Call[]>(DEMO_CALLS);
+  const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -219,27 +147,24 @@ export default function CallsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const fetchCalls = useCallback(async () => {
-    if (!currentProperty) {
-      setCalls(DEMO_CALLS);
-      setLoading(false);
-      return;
-    }
+    const propId = currentProperty?.id || '62e1b115-9382-40f8-853a-0a773735d034';
     setLoading(true);
     setError(null);
     try {
       const { data, error: fetchError } = await supabase
         .from('calls')
         .select('*')
-        .eq('property_id', currentProperty.id)
+        .eq('property_id', propId)
         .order('started_at', { ascending: false });
 
-      if (fetchError || !data || data.length === 0) {
-        setCalls(DEMO_CALLS);
+      if (fetchError) {
+        console.warn('Calls fetch error from RDS:', fetchError);
+        setCalls([]);
       } else {
-        setCalls(data as Call[]);
+        setCalls((data ?? []) as Call[]);
       }
     } catch {
-      setCalls(DEMO_CALLS);
+      setCalls([]);
     }
     setLoading(false);
   }, [currentProperty]);

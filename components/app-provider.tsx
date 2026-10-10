@@ -98,7 +98,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (props && props.length > 0) {
         setProperties(props);
         const savedPropId = typeof window !== 'undefined' ? localStorage.getItem('vaani_current_property') : null;
-        const initialProp = props.find((p) => p.id === savedPropId) ?? props[0];
+        const mainBranchId = '62e1b115-9382-40f8-853a-0a773735d034';
+        const initialProp =
+          props.find((p) => p.id === mainBranchId) ||
+          (savedPropId ? props.find((p) => p.id === savedPropId) : null) ||
+          props[0];
         setCurrentProperty(initialProp);
       } else {
         setProperties([]);
