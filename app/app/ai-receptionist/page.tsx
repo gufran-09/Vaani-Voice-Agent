@@ -127,7 +127,7 @@ export default function AIReceptionistPage() {
       greetingAddedRef.current = true;
       addMessage('agent', `Namaste! Welcome to ${propertyName}. What would you like to order today?`);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -366,17 +366,15 @@ export default function AIReceptionistPage() {
       {/* ── Status Badges ── */}
       <div className="flex flex-wrap gap-2">
         <Badge variant={sttMode === 'local-whisper' ? 'default' : 'secondary'} className="text-xs gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full inline-block ${
-            sttMode === 'local-whisper' ? 'bg-green-400 status-dot-pulse' :
-            sttMode === 'checking' ? 'bg-yellow-400 status-dot-pulse' : 'bg-orange-400'
-          }`} />
+          <span className={`w-1.5 h-1.5 rounded-full inline-block ${sttMode === 'local-whisper' ? 'bg-green-400 status-dot-pulse' :
+              sttMode === 'checking' ? 'bg-yellow-400 status-dot-pulse' : 'bg-orange-400'
+            }`} />
           🎙️ STT: {sttMode === 'local-whisper' ? 'Local Whisper' : sttMode === 'checking' ? 'Detecting...' : 'Browser Fallback'}
         </Badge>
         <Badge variant={ttsMode === 'local' ? 'default' : 'secondary'} className="text-xs gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full inline-block ${
-            ttsMode === 'local' ? 'bg-green-400 status-dot-pulse' :
-            ttsMode === 'checking' ? 'bg-yellow-400 status-dot-pulse' : 'bg-orange-400'
-          }`} />
+          <span className={`w-1.5 h-1.5 rounded-full inline-block ${ttsMode === 'local' ? 'bg-green-400 status-dot-pulse' :
+              ttsMode === 'checking' ? 'bg-yellow-400 status-dot-pulse' : 'bg-orange-400'
+            }`} />
           🔊 TTS: {ttsMode === 'local' ? 'Local Piper' : ttsMode === 'checking' ? 'Detecting...' : 'Browser Speech Synthesis'}
         </Badge>
         <Badge variant="outline" className="text-xs gap-1.5">
@@ -406,9 +404,8 @@ export default function AIReceptionistPage() {
                   className={`flex gap-3 ${msg.role === 'agent' ? 'flex-row' : 'flex-row-reverse'}`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      msg.role === 'agent' ? 'bg-primary' : 'bg-accent'
-                    }`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'agent' ? 'bg-primary' : 'bg-accent'
+                      }`}
                   >
                     {msg.role === 'agent' ? (
                       <Bot className="w-4 h-4 text-primary-foreground" />
@@ -417,11 +414,10 @@ export default function AIReceptionistPage() {
                     )}
                   </div>
                   <div
-                    className={`rounded-xl p-3 max-w-[80%] ${
-                      msg.role === 'agent'
+                    className={`rounded-xl p-3 max-w-[80%] ${msg.role === 'agent'
                         ? 'bg-secondary text-foreground'
                         : 'bg-primary text-primary-foreground'
-                    }`}
+                      }`}
                   >
                     <p className="text-sm leading-relaxed">{msg.text}</p>
                     <p className="text-[10px] opacity-50 mt-1">
