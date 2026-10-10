@@ -1,310 +1,553 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useApp } from '@/components/app-provider';
-import { supabase } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import {
-  Headset, Phone, Globe, Clock, Mic, AlertCircle, Check,
-  MessageSquare, Send, Bot, Save, Building2
+  Mic, MicOff, Square, Send, Bot, Volume2, Loader2,
+  Building2, CheckCircle2, Clock, ShoppingBag,
 } from 'lucide-react';
 
-const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'hi', label: 'Hindi' },
-  { code: 'te', label: 'Telugu' },
-  { code: 'ta', label: 'Tamil' },
-  { code: 'kn', label: 'Kannada' },
-  { code: 'mr', label: 'Marathi' },
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+type ConsoleStatus = 'idle' | 'recording' | 'transcribing' | 'processing' | 'speaking';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'agent';
+  text: string;
+  timestamp: Date;
+}
+
+interface OrderCard {
+  orderId: string;
+  orderNumber: string;
+  totalAmount: number;
+  etaMinutes: number;
+  items: Array<{ name: string; quantity: number }>;
+}
+
+type STTMode = 'local-whisper' | 'browser-fallback' | 'checking';
+type TTSMode = 'local' | 'browser-fallback' | 'checking';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PROPERTY_ID = '62e1b115-9382-40f8-853a-0a773735d034';
+
+const STATUS_LABELS: Record<ConsoleStatus, string> = {
+  idle: 'Ready — tap the mic to speak',
+  recording: 'Listening...',
+  transcribing: 'Transcribing your speech...',
+  processing: 'Thinking...',
+  speaking: 'Speaking...',
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AIReceptionistPage() {
-  const { currentOrg, currentProperty, refresh } = useApp();
-  const [greeting, setGreeting] = useState('');
-  const [greetingDocId, setGreetingDocId] = useState<string | null>(null);
-  const [recordingEnabled, setRecordingEnabled] = useState(false);
-  const [escalationPhone, setEscalationPhone] = useState('');
-  const [fallbackBehavior, setFallbackBehavior] = useState('ask_to_hold');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { currentProperty } = useApp();
+  const propertyName = currentProperty?.name || 'Cafe Vaani';
+
+  // Core state
+  const [status, setStatus] = useState<ConsoleStatus>('idle');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [textInput, setTextInput] = useState('');
+  const [orderCard, setOrderCard] = useState<OrderCard | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Session
+  const [sessionId] = useState(() => `session-${Date.now()}`);
+
+  // Service detection
+  const [sttMode, setSttMode] = useState<STTMode>('checking');
+  const [ttsMode, setTtsMode] = useState<TTSMode>('checking');
+
+  // Refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(true);
+
+  // ─── Service Detection on Mount ──────────────────────────────────────────
 
   useEffect(() => {
-    if (!currentProperty) {
-      setLoading(false);
-      return;
+    isMountedRef.current = true;
+
+    // Check Whisper STT availability
+    fetch('/api/agent/transcribe', { signal: AbortSignal.timeout(3000) })
+      .then((res) => {
+        if (isMountedRef.current) {
+          setSttMode(res.ok ? 'local-whisper' : 'browser-fallback');
+        }
+      })
+      .catch(() => {
+        if (isMountedRef.current) setSttMode('browser-fallback');
+      });
+
+    // Check local TTS availability
+    fetch('/api/agent/synthesize', { signal: AbortSignal.timeout(2000) })
+      .then((res) => {
+        if (isMountedRef.current) {
+          setTtsMode(res.ok ? 'local' : 'browser-fallback');
+        }
+      })
+      .catch(() => {
+        if (isMountedRef.current) setTtsMode('browser-fallback');
+      });
+
+    // Load voices for speechSynthesis (Chrome needs this)
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
     }
-    setLoading(true);
 
-    (async () => {
-      const { data } = await supabase
-        .from('knowledge_documents')
-        .select('*')
-        .eq('property_id', currentProperty.id)
-        .eq('title', 'AI Greeting')
-        .maybeSingle();
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-      if (data) {
-        setGreeting(data.content);
-        setGreetingDocId(data.id);
-      } else {
-        setGreeting(`Hello, thank you for calling ${currentProperty.name}. How may I help you today?`);
-      }
+  // ─── Auto-scroll chat ────────────────────────────────────────────────────
 
-      setEscalationPhone(currentProperty.phone ?? '');
-      setLoading(false);
-    })();
-  }, [currentProperty]);
-
-  const handleSaveGreeting = async () => {
-    if (!currentProperty) return;
-    setSaving(true);
-    if (greetingDocId) {
-      await supabase
-        .from('knowledge_documents')
-        .update({ content: greeting, updated_at: new Date().toISOString() })
-        .eq('id', greetingDocId);
-    } else {
-      const { data } = await supabase
-        .from('knowledge_documents')
-        .insert({
-          property_id: currentProperty.id,
-          title: 'AI Greeting',
-          content: greeting,
-          category: 'info',
-        })
-        .select()
-        .single();
-      if (data) setGreetingDocId(data.id);
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+  }, [messages]);
 
-  if (!currentProperty) {
-    return (
-      <div className="max-w-2xl mx-auto py-16 text-center">
-        <Building2 className="w-14 h-14 text-muted-foreground/30 mx-auto mb-4" />
-        <h2 className="text-2xl font-display font-bold mb-2">No property selected</h2>
-        <p className="text-muted-foreground">Select a property to configure your AI receptionist.</p>
-      </div>
-    );
+  // ─── Add greeting on first load ──────────────────────────────────────────
+
+  const greetingAddedRef = useRef(false);
+  useEffect(() => {
+    if (!greetingAddedRef.current) {
+      greetingAddedRef.current = true;
+      addMessage('agent', `Namaste! Welcome to ${propertyName}. What would you like to order today?`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  function addMessage(role: 'user' | 'agent', text: string) {
+    setMessages((prev) => [
+      ...prev,
+      { id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`, role, text, timestamp: new Date() },
+    ]);
   }
 
+  // ─── TTS: Speak text aloud ──────────────────────────────────────────────
+
+  const speakText = useCallback(async (text: string) => {
+    if (!text.trim()) return;
+
+    const cleanText = text
+      .replace(/[*_#`~]/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText) return;
+
+    // Browser Speech Synthesis
+    return new Promise<void>((resolve) => {
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        resolve();
+        return;
+      }
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'en-IN';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      const voices = window.speechSynthesis.getVoices();
+      const voice =
+        voices.find((v) => v.lang === 'en-IN') ||
+        voices.find((v) => v.lang === 'hi-IN') ||
+        voices.find((v) => v.lang.startsWith('en'));
+      if (voice) utterance.voice = voice;
+
+      const safetyTimeout = setTimeout(() => {
+        window.speechSynthesis.cancel();
+        resolve();
+      }, 30_000);
+
+      utterance.onend = () => { clearTimeout(safetyTimeout); resolve(); };
+      utterance.onerror = () => { clearTimeout(safetyTimeout); resolve(); };
+
+      window.speechSynthesis.speak(utterance);
+    });
+  }, []);
+
+  // ─── Core Pipeline: transcript -> chat -> speak ──────────────────────────
+
+  const processTranscript = useCallback(async (transcript: string) => {
+    if (!transcript.trim()) {
+      setError('Could not understand. Please try again.');
+      setStatus('idle');
+      return;
+    }
+
+    addMessage('user', transcript);
+    setStatus('processing');
+    setError(null);
+
+    try {
+      const chatRes = await fetch('/api/agent/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: transcript.trim(),
+          sessionId,
+          propertyId: PROPERTY_ID,
+        }),
+      });
+
+      if (!chatRes.ok) {
+        throw new Error(`Chat API error: ${chatRes.status}`);
+      }
+
+      const chatData = await chatRes.json();
+      const reply = chatData.reply || 'Sorry, I could not process that.';
+
+      addMessage('agent', reply);
+
+      // Handle order creation
+      if (chatData.orderCreated) {
+        setOrderCard(chatData.orderCreated);
+      }
+
+      // Speak the reply
+      setStatus('speaking');
+      await speakText(reply);
+    } catch (err: any) {
+      console.error('[voice-console] Pipeline error:', err);
+      setError(err.message || 'Something went wrong');
+      addMessage('agent', 'Sorry, there was an error. Please try again.');
+    }
+
+    if (isMountedRef.current) {
+      setStatus('idle');
+    }
+  }, [sessionId, speakText]);
+
+  // ─── Recording ───────────────────────────────────────────────────────────
+
+  const startRecording = useCallback(async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Pick a supported MIME type
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : 'audio/mp4';
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        // Stop all tracks to release the mic
+        stream.getTracks().forEach((t) => t.stop());
+
+        if (chunksRef.current.length === 0) {
+          setError('No audio captured');
+          setStatus('idle');
+          return;
+        }
+
+        const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+
+        if (audioBlob.size < 100) {
+          setError('Recording too short');
+          setStatus('idle');
+          return;
+        }
+
+        // Transcribe
+        setStatus('transcribing');
+
+        try {
+          const formData = new FormData();
+          formData.append('file', audioBlob, 'recording.webm');
+
+          const sttRes = await fetch('/api/agent/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!sttRes.ok) {
+            throw new Error('Transcription failed');
+          }
+
+          const sttData = await sttRes.json();
+          await processTranscript(sttData.transcript || '');
+        } catch (sttErr: any) {
+          console.error('[voice-console] STT error:', sttErr);
+          setError('Transcription failed. Try typing instead.');
+          setStatus('idle');
+        }
+      };
+
+      recorder.start(250); // Collect chunks every 250ms
+      mediaRecorderRef.current = recorder;
+      setStatus('recording');
+    } catch (micErr: any) {
+      console.error('[voice-console] Mic access error:', micErr);
+      setError('Microphone access denied. Please allow mic access in your browser.');
+      setStatus('idle');
+    }
+  }, [processTranscript]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  const handleMicClick = useCallback(() => {
+    if (status === 'recording') {
+      stopRecording();
+    } else if (status === 'idle') {
+      startRecording();
+    }
+  }, [status, startRecording, stopRecording]);
+
+  // ─── Text input fallback ─────────────────────────────────────────────────
+
+  const handleTextSubmit = useCallback(async () => {
+    if (!textInput.trim() || status !== 'idle') return;
+    const text = textInput.trim();
+    setTextInput('');
+    await processTranscript(text);
+  }, [textInput, status, processTranscript]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleTextSubmit();
+    }
+  }, [handleTextSubmit]);
+
+  // ─── No property guard removed — voice console works with hardcoded PROPERTY_ID ──
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+
+  const isActive = status !== 'idle';
+
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
+    <div className="space-y-4 animate-fade-in max-w-4xl mx-auto">
+      {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-            <Headset className="w-6 h-6 text-primary-foreground" />
+            <Mic className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold">AI Receptionist</h1>
+            <h1 className="text-2xl font-display font-bold">Voice Console</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Configure how your AI agent handles incoming calls
+              Speak or type to interact with your AI receptionist
             </p>
           </div>
         </div>
-        <Badge variant={currentProperty.status === 'active' ? 'default' : 'secondary'}>
-          {currentProperty.status === 'active' ? 'Active' : 'Setup Pending'}
+      </div>
+
+      {/* ── Status Badges ── */}
+      <div className="flex flex-wrap gap-2">
+        <Badge variant={sttMode === 'local-whisper' ? 'default' : 'secondary'} className="text-xs gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+            sttMode === 'local-whisper' ? 'bg-green-400 status-dot-pulse' :
+            sttMode === 'checking' ? 'bg-yellow-400 status-dot-pulse' : 'bg-orange-400'
+          }`} />
+          🎙️ STT: {sttMode === 'local-whisper' ? 'Local Whisper' : sttMode === 'checking' ? 'Detecting...' : 'Browser Fallback'}
+        </Badge>
+        <Badge variant={ttsMode === 'local' ? 'default' : 'secondary'} className="text-xs gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+            ttsMode === 'local' ? 'bg-green-400 status-dot-pulse' :
+            ttsMode === 'checking' ? 'bg-yellow-400 status-dot-pulse' : 'bg-orange-400'
+          }`} />
+          🔊 TTS: {ttsMode === 'local' ? 'Local Piper' : ttsMode === 'checking' ? 'Detecting...' : 'Browser Speech Synthesis'}
+        </Badge>
+        <Badge variant="outline" className="text-xs gap-1.5">
+          🏪 {propertyName}
         </Badge>
       </div>
 
-      {loading ? (
-        <div className="py-12 text-center text-muted-foreground animate-pulse-soft">Loading configuration...</div>
-      ) : (
-        <>
-          {/* Greeting & Brand Voice */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display">Greeting & Brand Voice</CardTitle>
-              <CardDescription>The opening message callers hear when they reach your business.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                value={greeting}
-                onChange={(e) => setGreeting(e.target.value)}
-                rows={3}
-                placeholder="Enter your AI receptionist's greeting..."
-              />
-              <div className="flex items-center gap-3">
-                <Button onClick={handleSaveGreeting} disabled={saving} size="sm">
-                  {saving ? 'Saving...' : saved ? (
-                    <><Check className="w-4 h-4 mr-1" /> Saved</>
-                  ) : (
-                    <><Save className="w-4 h-4 mr-1" /> Save greeting</>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {/* ── Main Console Card ── */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-display flex items-center gap-2">
+            <Bot className="w-4 h-4 text-primary" />
+            Live Conversation
+          </CardTitle>
+          <CardDescription>
+            {STATUS_LABELS[status]}
+          </CardDescription>
+        </CardHeader>
 
-          {/* Supported Languages */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <Globe className="w-4 h-4 text-accent" />
-                Supported Languages
-              </CardTitle>
-              <CardDescription>Languages your AI receptionist can converse in.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {LANGUAGES.map((lang) => {
-                  const active = currentOrg?.supported_languages?.includes(lang.code);
-                  return (
-                    <Badge
-                      key={lang.code}
-                      variant={active ? 'default' : 'outline'}
-                      className="text-sm py-1.5"
-                    >
-                      {lang.label}
-                    </Badge>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Language preferences are managed at the organization level in Settings.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Call Recording */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <Mic className="w-4 h-4 text-accent" />
-                Call Recording
-              </CardTitle>
-              <CardDescription>Recording is disabled by default. A consent announcement is required when enabled.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium">Enable call recording</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Callers will hear a consent announcement before recording begins.
+        <CardContent className="p-0">
+          {/* ── Chat Messages ── */}
+          <ScrollArea className="h-[350px] px-4 pb-4" ref={scrollRef}>
+            <div className="space-y-3 pt-2">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex gap-3 ${msg.role === 'agent' ? 'flex-row' : 'flex-row-reverse'}`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      msg.role === 'agent' ? 'bg-primary' : 'bg-accent'
+                    }`}
+                  >
+                    {msg.role === 'agent' ? (
+                      <Bot className="w-4 h-4 text-primary-foreground" />
+                    ) : (
+                      <Mic className="w-4 h-4 text-accent-foreground" />
+                    )}
+                  </div>
+                  <div
+                    className={`rounded-xl p-3 max-w-[80%] ${
+                      msg.role === 'agent'
+                        ? 'bg-secondary text-foreground'
+                        : 'bg-primary text-primary-foreground'
+                    }`}
+                  >
+                    <p className="text-sm leading-relaxed">{msg.text}</p>
+                    <p className="text-[10px] opacity-50 mt-1">
+                      {msg.timestamp.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
                 </div>
-                <Switch
-                  checked={recordingEnabled}
-                  onCheckedChange={setRecordingEnabled}
-                />
-              </div>
-              {recordingEnabled && (
-                <div className="mt-4 rounded-lg border border-warning/30 bg-warning/5 p-3 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
-                    Recording requires caller consent under Indian telecommunications regulations.
-                    A consent announcement will be played automatically before recording starts.
-                  </p>
+              ))}
+
+              {/* Loading indicator */}
+              {(status === 'transcribing' || status === 'processing') && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-primary">
+                    <Bot className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  <div className="rounded-xl p-3 bg-secondary">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      {status === 'transcribing' ? 'Transcribing...' : 'Thinking...'}
+                    </div>
+                  </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </ScrollArea>
 
-          {/* Human Escalation */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <Phone className="w-4 h-4 text-accent" />
-                Human Escalation
-              </CardTitle>
-              <CardDescription>When the AI cannot handle a request, define how to transfer to a human.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="escalation-phone">Escalation phone number</Label>
-                <Input
-                  id="escalation-phone"
-                  value={escalationPhone}
-                  onChange={(e) => setEscalationPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fallback">Fallback behavior</Label>
-                <Select value={fallbackBehavior} onValueChange={setFallbackBehavior}>
-                  <SelectTrigger id="fallback">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ask_to_hold">Ask caller to hold for staff</SelectItem>
-                    <SelectItem value="request_callback">Request a callback from staff</SelectItem>
-                    <SelectItem value="transfer_to_staff">Transfer call to staff directly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+          <Separator />
 
-          {/* Test Conversation (Visual) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-accent" />
-                Test Conversation Preview
-              </CardTitle>
-              <CardDescription>
-                A sample interaction showing how your AI receptionist would handle a call.
-                This is a visual preview — not a live AI connection.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[300px] rounded-lg border p-4">
-                <div className="space-y-4">
-                  {[
-                    { role: 'agent', text: greeting || 'Hello, thank you for calling. How may I help you?' },
-                    { role: 'caller', text: 'Hi, I\u2019d like to place a takeaway order for two cappuccinos and a croissant.' },
-                    { role: 'agent', text: 'I can help with that. Let me check availability. Two cappuccinos and one croissant \u2014 is that correct?' },
-                    { role: 'caller', text: 'Yes, that\u2019s right.' },
-                    { role: 'agent', text: 'Your total comes to \u20b9450. The estimated pickup time is 12 minutes. Shall I confirm this order?' },
-                    { role: 'caller', text: 'Yes, please confirm.' },
-                    { role: 'agent', text: 'Your order has been confirmed. You\u2019ll receive an SMS confirmation shortly. Thank you for calling!' },
-                  ].map((msg, i) => (
-                    <div key={i} className={`flex gap-3 ${msg.role === 'agent' ? 'flex-row' : 'flex-row-reverse'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        msg.role === 'agent' ? 'bg-primary' : 'bg-accent'
-                      }`}>
-                        {msg.role === 'agent' ? (
-                          <Bot className="w-4 h-4 text-primary-foreground" />
-                        ) : (
-                          <span className="text-xs font-medium text-accent-foreground">U</span>
-                        )}
-                      </div>
-                      <div className={`rounded-xl p-3 max-w-[80%] ${
-                        msg.role === 'agent' ? 'bg-secondary text-foreground' : 'bg-primary text-primary-foreground'
-                      }`}>
-                        <p className="text-sm">{msg.text}</p>
-                      </div>
-                    </div>
-                  ))}
+          {/* ── Controls ── */}
+          <div className="p-4 space-y-3">
+            {/* Error display */}
+            {error && (
+              <div className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            {/* Mic Button — centered and prominent */}
+            <div className="flex justify-center">
+              <button
+                onClick={handleMicClick}
+                disabled={isActive && status !== 'recording'}
+                className={`
+                  w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200
+                  focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                  ${status === 'recording'
+                    ? 'bg-red-500 hover:bg-red-600 text-white recording-pulse'
+                    : isActive
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                      : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105 active:scale-95'
+                  }
+                `}
+                aria-label={status === 'recording' ? 'Stop recording' : 'Start recording'}
+              >
+                {status === 'recording' ? (
+                  <Square className="w-6 h-6" />
+                ) : status === 'speaking' ? (
+                  <Volume2 className="w-6 h-6" />
+                ) : isActive ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <Mic className="w-6 h-6" />
+                )}
+              </button>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground">
+              {status === 'recording' ? 'Tap to stop' : status === 'idle' ? 'Tap to speak' : STATUS_LABELS[status]}
+            </p>
+
+            {/* Text input fallback */}
+            <div className="flex items-center gap-2">
+              <Input
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Or type your message here..."
+                disabled={isActive}
+                className="flex-1 text-sm"
+              />
+              <Button
+                size="icon"
+                onClick={handleTextSubmit}
+                disabled={isActive || !textInput.trim()}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Order Confirmation Card ── */}
+      {orderCard && (
+        <Card className="border-green-500/30 bg-gradient-to-br from-green-500/5 to-green-600/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-display flex items-center gap-2 text-green-700 dark:text-green-400">
+              <CheckCircle2 className="w-5 h-5" />
+              Order {orderCard.orderNumber} Confirmed!
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {/* Items */}
+              <div className="space-y-1">
+                {orderCard.items.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <ShoppingBag className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>{item.quantity}× {item.name}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Separator />
+
+              {/* Total & ETA */}
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold">₹{orderCard.totalAmount}</span>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  Ready in ~{orderCard.etaMinutes} min
                 </div>
-              </ScrollArea>
-              <div className="mt-3 flex items-center gap-2">
-                <Input placeholder="Type a test message..." className="flex-1" />
-                <Button size="icon" disabled>
-                  <Send className="w-4 h-4" />
-                </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                This is a visual preview. Live AI voice interaction requires telephony and AI provider configuration.
-              </p>
-            </CardContent>
-          </Card>
-        </>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
