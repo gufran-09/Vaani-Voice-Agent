@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { useApp } from '@/components/app-provider';
 import { supabase } from '@/lib/api';
+import { findImageByName } from '@/lib/menu-data';
 import type { Database } from '@/lib/types';
 import type { MenuAvailability } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -633,24 +635,35 @@ function ItemsGrid({
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {items.map((item) => {
         const cat = categories?.find((c) => c.id === item.category_id);
+        const itemImage = findImageByName(item.name);
         return (
-          <Card key={item.id}>
-            <CardHeader className="pb-3">
+          <Card key={item.id} className="overflow-hidden group hover:shadow-md transition-shadow">
+            <div className="relative h-44 w-full bg-muted overflow-hidden">
+              <Image
+                src={itemImage}
+                alt={item.name}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+              <Badge
+                variant={
+                  availabilityVariantMap[item.availability] ?? 'secondary'
+                }
+                className="absolute top-3 right-3 shadow-sm"
+              >
+                {availabilityLabelMap[item.availability]}
+              </Badge>
+            </div>
+            <CardHeader className="pb-2 pt-4">
               <div className="flex items-start justify-between gap-2">
                 <CardTitle className="text-base font-display leading-tight">
                   {item.name}
                 </CardTitle>
-                <Badge
-                  variant={
-                    availabilityVariantMap[item.availability] ?? 'secondary'
-                  }
-                  className="shrink-0"
-                >
-                  {availabilityLabelMap[item.availability]}
-                </Badge>
               </div>
               {cat && (
-                <p className="text-xs text-muted-foreground">{cat.name}</p>
+                <p className="text-xs font-medium text-muted-foreground">{cat.name}</p>
               )}
             </CardHeader>
             <CardContent className="space-y-3">

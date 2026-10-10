@@ -1,7 +1,7 @@
 /**
  * lib/menu-data.ts
  * Central authoritative menu data catalog containing all 28 café food items across 6 categories.
- * Sourced directly from PostgreSQL schema seed (db/seed-cafe.sql & scripts/seed-menu.ts).
+ * Each item contains accurate photographic images saved locally in /images/food/<slug>.jpg.
  */
 
 export interface CafeMenuItem {
@@ -17,7 +17,7 @@ export interface CafeMenuItem {
   prep_time_minutes: number;
   station: 'Espresso Bar' | 'Slow Bar' | 'Fryer & Snacks' | 'Griddle & Tiffin' | 'Bakery' | 'Main Kitchen';
   badge?: string;
-  image?: string;
+  image: string;
   spokenQuery?: string;
 }
 
@@ -53,7 +53,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 3,
     station: 'Espresso Bar',
     badge: 'Heritage Brew',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/filter-coffee.jpg',
     spokenQuery: '“Oka hot filter coffee dabarah style lo ivvandi.”',
   },
   {
@@ -69,7 +69,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 3,
     station: 'Espresso Bar',
     badge: 'Street Kadak',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/masala-chai.jpg',
     spokenQuery: '“Ek cutting kadak masala chai jaldi bana do.”',
   },
   {
@@ -85,7 +85,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 3,
     station: 'Espresso Bar',
     badge: 'Pure Arabica',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/espresso.jpg',
     spokenQuery: '“One double shot espresso with golden crema please.”',
   },
   {
@@ -101,7 +101,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 5,
     station: 'Espresso Bar',
     badge: 'Signature',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/cappuccino.jpg',
     spokenQuery: '“Two oat milk cappuccinos with extra foam.”',
   },
   {
@@ -117,7 +117,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 5,
     station: 'Espresso Bar',
     badge: 'Fusion Special',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/chai-latte.jpg',
     spokenQuery: '“Can I get a hot Masala Chai Latte parcel?”',
   },
   {
@@ -133,7 +133,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 5,
     station: 'Espresso Bar',
     badge: 'Belgian Cocoa',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/hot-chocolate.jpg',
     spokenQuery: '“One rich hot chocolate with extra marshmallow cream.”',
   },
 
@@ -151,7 +151,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 2,
     station: 'Slow Bar',
     badge: 'Single Origin',
-    image: '/images/cafe/glass-cup.png',
+    image: '/images/food/cold-brew.jpg',
     spokenQuery: '“One slow steeped cold brew, black over clear ice.”',
   },
   {
@@ -167,7 +167,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 4,
     station: 'Slow Bar',
     badge: 'Crowd Favorite',
-    image: '/images/cafe/glass-cup.png',
+    image: '/images/food/cold-coffee.jpg',
     spokenQuery: '“Do classic thick cold coffee parcel cheyyandi.”',
   },
   {
@@ -183,7 +183,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 4,
     station: 'Slow Bar',
     badge: 'Alphonso Pure',
-    image: '/images/cafe/glass-cup.png',
+    image: '/images/food/mango-lassi.jpg',
     spokenQuery: '“One chilled mango lassi with extra pistachio garnish.”',
   },
   {
@@ -199,7 +199,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 4,
     station: 'Slow Bar',
     badge: 'Zero Sugar Added',
-    image: '/images/cafe/glass-cup.png',
+    image: '/images/food/watermelon-cooler.jpg',
     spokenQuery: '“Ek watermelon mint cooler refreshing black salt ke sath.”',
   },
 
@@ -217,7 +217,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 6,
     station: 'Fryer & Snacks',
     badge: 'Fresh Fry',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/samosa.jpg',
     spokenQuery: '“Bhaiya, do plate garam samosa aur meethi chutney dena.”',
   },
   {
@@ -233,7 +233,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 6,
     station: 'Fryer & Snacks',
     badge: 'Mumbai Classic',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/vada-pav.jpg',
     spokenQuery: '“Ek spicy Mumbai vada pav with roasted green chili.”',
   },
   {
@@ -249,7 +249,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 4,
     station: 'Fryer & Snacks',
     badge: 'Flaky Bake',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/veg-puff.jpg',
     spokenQuery: '“Two hot crispy veg puffs parcel kar dijiye.”',
   },
   {
@@ -265,7 +265,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 8,
     station: 'Fryer & Snacks',
     badge: 'Chef Wrap',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/paneer-roll.jpg',
     spokenQuery: '“Oka hot paneer roll parcel chesi ivvandi.”',
   },
   {
@@ -281,7 +281,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 12,
     station: 'Fryer & Snacks',
     badge: 'Tandoori Roast',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/paneer-tikka-wrap.jpg',
     spokenQuery: '“One smoky paneer tikka wrap with mint chutney.”',
   },
   {
@@ -297,7 +297,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 5,
     station: 'Fryer & Snacks',
     badge: 'Crispy Lentil',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/medu-vada.jpg',
     spokenQuery: '“Rendu crispy medu vadas with hot sambar and chutney.”',
   },
   {
@@ -313,7 +313,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 8,
     station: 'Fryer & Snacks',
     badge: 'Melted Mozzarella',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/cheese-garlic-bread.jpg',
     spokenQuery: '“One cheese garlic bread, extra oregano please.”',
   },
   {
@@ -329,7 +329,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 8,
     station: 'Fryer & Snacks',
     badge: 'Tangy Crunch',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/corn-chaat.jpg',
     spokenQuery: '“Ek spicy crispy corn chaat thoda extra lemon ke sath.”',
   },
 
@@ -347,7 +347,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 3,
     station: 'Griddle & Tiffin',
     badge: 'Irani Classic',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/bun-maska.jpg',
     spokenQuery: '“Ek Bun Maska aur ek Cutting Chai saath me lagao.”',
   },
   {
@@ -363,7 +363,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 8,
     station: 'Griddle & Tiffin',
     badge: 'Crispy Crepe',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/masala-dosa.jpg',
     spokenQuery: '“One crispy Tawa Masala Dosa, sambar separate.”',
   },
   {
@@ -379,7 +379,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 8,
     station: 'Griddle & Tiffin',
     badge: 'Artisanal Sourdough',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/avocado-toast.jpg',
     spokenQuery: '“One fresh avocado toast on sourdough with feta.”',
   },
 
@@ -397,7 +397,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 4,
     station: 'Bakery',
     badge: 'Pure Butter Layer',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/croissant.jpg',
     spokenQuery: '“Ek warm butter croissant pack kar do.”',
   },
   {
@@ -413,7 +413,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 3,
     station: 'Bakery',
     badge: 'Double Choco Chip',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/chocolate-muffin.jpg',
     spokenQuery: '“Two chocolate muffins fresh from the bakery display.”',
   },
   {
@@ -429,7 +429,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 6,
     station: 'Bakery',
     badge: 'Fudgy Walnut',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/chocolate-brownie.jpg',
     spokenQuery: '“One warm chocolate walnut brownie for takeaway.”',
   },
   {
@@ -445,7 +445,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 3,
     station: 'Bakery',
     badge: 'Saffron Rose Syrup',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/gulab-jamun.jpg',
     spokenQuery: '“Rendu warm gulab jamuns parcel cheyyandi.”',
   },
   {
@@ -461,7 +461,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 3,
     station: 'Bakery',
     badge: 'Alphonso Glaze',
-    image: '/images/cafe/croissant.png',
+    image: '/images/food/mango-panna-cotta.jpg',
     spokenQuery: '“One mango panna cotta chilled in dessert jar.”',
   },
 
@@ -479,7 +479,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 12,
     station: 'Main Kitchen',
     badge: 'Slow Simmered',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/dal-makhani.jpg',
     spokenQuery: '“Ek Dal Makhani rice bowl parcel ready kar do.”',
   },
   {
@@ -495,7 +495,7 @@ export const ALL_FOOD_ITEMS: CafeMenuItem[] = [
     prep_time_minutes: 15,
     station: 'Main Kitchen',
     badge: 'Garlic Parmesan',
-    image: '/images/cafe/espresso-cup.png',
+    image: '/images/food/mushroom-pasta.jpg',
     spokenQuery: '“One creamy mushroom penne pasta with garlic bread.”',
   },
 ];
@@ -510,4 +510,14 @@ export function getMenuItemsByStation(station: string): CafeMenuItem[] {
 
 export function findMenuItemById(id: string): CafeMenuItem | undefined {
   return ALL_FOOD_ITEMS.find((item) => item.id === id);
+}
+
+export function findImageByName(name: string): string {
+  const norm = name.toLowerCase();
+  const match = ALL_FOOD_ITEMS.find((item) =>
+    norm.includes(item.name.toLowerCase()) ||
+    item.name.toLowerCase().includes(norm) ||
+    item.spoken_aliases.some((a) => norm.includes(a.toLowerCase()))
+  );
+  return match?.image || '/images/food/filter-coffee.jpg';
 }

@@ -73,21 +73,21 @@ export function CafeAtmosphere() {
               className="group bg-white/95 rounded-3xl p-6 border border-cafe-espresso/10 hover:border-cafe-coral/30 shadow-warm hover:shadow-warm-lg transition-all duration-300 flex flex-col justify-between"
             >
               <div>
-                {/* Isolated Asset Stage */}
-                <div className="relative h-44 w-full mb-6 flex items-center justify-center bg-cafe-cream/40 rounded-2xl p-4 overflow-hidden group-hover:scale-105 transition-transform duration-300">
-                  <div className="absolute inset-0 bg-radial from-white to-transparent opacity-60" />
+                {/* Photographic Food Card Banner */}
+                <div className="relative h-48 w-full mb-5 rounded-2xl overflow-hidden group-hover:scale-[1.03] transition-transform duration-300 bg-cafe-sand/20 shadow-inner">
                   <Image
-                    src={item.image || '/images/cafe/espresso-cup.png'}
+                    src={item.image || '/images/food/filter-coffee.jpg'}
                     alt={item.name}
-                    width={180}
-                    height={180}
-                    className="object-contain relative z-10 drop-shadow-lg"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                   />
-                  <Badge className="absolute top-3 left-3 bg-cafe-espresso text-cafe-cream text-[10px] font-bold uppercase tracking-wider">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
+                  <Badge className="absolute top-3 left-3 bg-cafe-espresso/90 backdrop-blur-sm text-cafe-cream text-[10px] font-bold uppercase tracking-wider shadow-sm">
                     {item.badge || item.category_name}
                   </Badge>
                   {item.availability !== 'available' && (
-                    <Badge variant="destructive" className="absolute top-3 right-3 text-[10px]">
+                    <Badge variant="destructive" className="absolute top-3 right-3 text-[10px] shadow-sm">
                       {item.availability}
                     </Badge>
                   )}
