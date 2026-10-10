@@ -86,6 +86,40 @@ interface PopularItem {
   revenue: number;
 }
 
+const DEMO_ANALYTICS_ORDERS: Order[] = [
+  { id: 'o1', property_id: 'p1', order_number: 'ORD-101', customer_name: 'Amit Patel', customer_phone: '+91 98111 22233', channel: 'voice', status: 'completed', total_amount: 140, notes: null, prep_eta_minutes: 10, created_at: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date().toISOString() },
+  { id: 'o2', property_id: 'p1', order_number: 'ORD-102', customer_name: 'Pooja Nair', customer_phone: '+91 98222 33344', channel: 'voice', status: 'completed', total_amount: 220, notes: null, prep_eta_minutes: 12, created_at: new Date(Date.now() - 172800000).toISOString(), updated_at: new Date().toISOString() },
+  { id: 'o3', property_id: 'p1', order_number: 'ORD-103', customer_name: 'Rohan Sharma', customer_phone: '+91 98333 44455', channel: 'voice', status: 'completed', total_amount: 180, notes: null, prep_eta_minutes: 8, created_at: new Date(Date.now() - 259200000).toISOString(), updated_at: new Date().toISOString() },
+  { id: 'o4', property_id: 'p1', order_number: 'ORD-104', customer_name: 'Sneha Rao', customer_phone: '+91 98444 55566', channel: 'voice', status: 'preparing', total_amount: 160, notes: null, prep_eta_minutes: 14, created_at: new Date(Date.now() - 345600000).toISOString(), updated_at: new Date().toISOString() },
+  { id: 'o5', property_id: 'p1', order_number: 'ORD-105', customer_name: 'Karan Singh', customer_phone: '+91 98555 66677', channel: 'voice', status: 'received', total_amount: 90, notes: null, prep_eta_minutes: 10, created_at: new Date(Date.now() - 432000000).toISOString(), updated_at: new Date().toISOString() },
+  { id: 'o6', property_id: 'p1', order_number: 'ORD-106', customer_name: 'Deepa Verma', customer_phone: '+91 98666 77788', channel: 'voice', status: 'ready', total_amount: 250, notes: null, prep_eta_minutes: 15, created_at: new Date(Date.now() - 518400000).toISOString(), updated_at: new Date().toISOString() },
+];
+
+const DEMO_ANALYTICS_CALLS: Call[] = [
+  { id: 'c1', property_id: 'p1', caller_phone: '+91 98111 22233', status: 'completed', outcome: 'order_placed', duration_seconds: 52, language: 'Telugu + English', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 86400000).toISOString(), ended_at: new Date().toISOString() },
+  { id: 'c2', property_id: 'p1', caller_phone: '+91 98222 33344', status: 'completed', outcome: 'order_placed', duration_seconds: 68, language: 'Hindi + English', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 172800000).toISOString(), ended_at: new Date().toISOString() },
+  { id: 'c3', property_id: 'p1', caller_phone: '+91 98333 44455', status: 'completed', outcome: 'info_provided', duration_seconds: 40, language: 'Indian English', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 259200000).toISOString(), ended_at: new Date().toISOString() },
+  { id: 'c4', property_id: 'p1', caller_phone: '+91 98444 55566', status: 'completed', outcome: 'order_placed', duration_seconds: 45, language: 'Telugu', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 345600000).toISOString(), ended_at: new Date().toISOString() },
+  { id: 'c5', property_id: 'p1', caller_phone: '+91 98555 66677', status: 'completed', outcome: 'human_transfer', duration_seconds: 90, language: 'Hindi', transcript_available: true, recording_available: false, started_at: new Date(Date.now() - 432000000).toISOString(), ended_at: new Date().toISOString() },
+];
+
+const DEMO_ANALYTICS_ORDER_ITEMS: OrderItem[] = [
+  { id: 'oi1', order_id: 'o1', menu_item_id: 'm1', name: 'South Indian Filter Coffee', quantity: 58, price: 40, notes: null },
+  { id: 'oi2', order_id: 'o1', menu_item_id: 'm2', name: 'Samosa (2 pcs)', quantity: 52, price: 50, notes: null },
+  { id: 'oi3', order_id: 'o2', menu_item_id: 'm3', name: 'Cutting Masala Chai', quantity: 49, price: 30, notes: null },
+  { id: 'oi4', order_id: 'o2', menu_item_id: 'm4', name: 'Irani Bun Maska', quantity: 41, price: 50, notes: null },
+  { id: 'oi5', order_id: 'o3', menu_item_id: 'm5', name: 'Tawa Masala Dosa', quantity: 36, price: 90, notes: null },
+  { id: 'oi6', order_id: 'o3', menu_item_id: 'm6', name: 'Cold Brew Coffee', quantity: 31, price: 220, notes: null },
+  { id: 'oi7', order_id: 'o4', menu_item_id: 'm7', name: 'Masala Vada Pav', quantity: 28, price: 80, notes: null },
+  { id: 'oi8', order_id: 'o4', menu_item_id: 'm8', name: 'Paneer Tikka Wrap', quantity: 25, price: 260, notes: null },
+  { id: 'oi9', order_id: 'o5', menu_item_id: 'm9', name: 'Dal Makhani Bowl', quantity: 24, price: 250, notes: null },
+  { id: 'oi10', order_id: 'o5', menu_item_id: 'm10', name: 'Creamy Mushroom Pasta', quantity: 21, price: 320, notes: null },
+  { id: 'oi11', order_id: 'o6', menu_item_id: 'm11', name: 'Mango Lassi', quantity: 26, price: 160, notes: null },
+  { id: 'oi12', order_id: 'o6', menu_item_id: 'm12', name: 'Butter Croissant', quantity: 22, price: 90, notes: null },
+  { id: 'oi13', order_id: 'o6', menu_item_id: 'm13', name: 'Warm Chocolate Brownie', quantity: 19, price: 180, notes: null },
+  { id: 'oi14', order_id: 'o6', menu_item_id: 'm14', name: 'Gulab Jamun (2 pcs)', quantity: 18, price: 120, notes: null },
+];
+
 export default function AnalyticsPage() {
   const { currentProperty } = useApp();
   const [orders, setOrders] = useState<Order[]>([]);
