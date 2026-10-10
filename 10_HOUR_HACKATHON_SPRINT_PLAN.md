@@ -54,7 +54,7 @@ To guarantee a working product with zero broken links on stage, work **MUST** fo
 1. **P0.1 — Seed Cafe Menu in RDS (`db/seed-cafe.sql`) [MEMBER 2]**:
    - **Why 1st:** Neither the AI Agent nor the Kitchen Display can function without real items, prices, and spoken aliases in PostgreSQL.
    - **Exit Criteria:** Querying `SELECT name, price, spoken_aliases FROM menu_items` returns 15 realistic Indian cafe items.
-
+ 
 2. **P0.2 — AI Agent Chat API (`/api/agent/chat/route.ts`) [MEMBER 2]**:
    - **Why 2nd:** Connects user utterances (*"Ek filter coffee aur do samosa"*) to LLM tools, verifies items in RDS, and commits directly to `orders` and `order_items` tables.
    - **Exit Criteria:** A POST request with text `"I want 1 filter coffee and 2 samosas"` returns confirmed status and creates a row in `orders`.

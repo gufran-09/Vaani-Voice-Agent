@@ -142,17 +142,24 @@ export async function POST(req: NextRequest) {
       ) {
         return NextResponse.json({
           reply:
-            'Namaste! Welcome to Cafe Vaani. We have fresh Filter Coffee, Masala Chai, Samosas, and Bun Maska today. What would you like to order?',
+            'Namaste! Welcome to Cafe Vaani. We have fresh Filter Coffee, Masala Chai, Samosas, Bun Maska, Vada Pav, Croissants, and Cold Brew today. What would you like to order?',
         });
       }
 
-      // Query live menu items for property
+      // Query live menu items for property, with graceful fallback to all menu items if property has none
       const menuRes = await query<MenuItemRow>(
         `SELECT id, name, price, availability, spoken_aliases, prep_time_minutes, description
          FROM menu_items WHERE property_id = $1`,
         [propertyId],
       );
-      const menuItems = menuRes.rows;
+      let menuItems = menuRes.rows;
+      if (menuItems.length === 0) {
+        const allRes = await query<MenuItemRow>(
+          `SELECT id, name, price, availability, spoken_aliases, prep_time_minutes, description
+           FROM menu_items ORDER BY name ASC`,
+        );
+        menuItems = allRes.rows;
+      }
 
       // Quantity extraction supporting English, Hindi, and Telugu
       const extractQuantity = (text: string, itemName: string): number => {

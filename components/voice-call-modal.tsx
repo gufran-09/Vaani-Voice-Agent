@@ -726,17 +726,45 @@ export function VoiceCallModal() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleUserUtterance('I want one samosa')}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-left transition-colors"
-                >
-                  ⚠️ Stock-Out Test: 1 Samosa
-                </button>
-                <button
-                  type="button"
                   onClick={() => handleUserUtterance('Ek Masala Chai aur Bun Maska pack kar dijiye')}
                   className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
                 >
                   🍞 Chai + Bun Maska
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('Do Masala Vada Pav aur ek Classic Cold Coffee parcel cheyyandi')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🍔 2 Vada Pav + Cold Coffee
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('Can I order one Avocado Toast and one Cold Brew Coffee please?')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🥑 Avocado Toast + Cold Brew
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('Ek Paneer Tikka Wrap aur ek Mango Lassi pack kar do')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🌯 Paneer Wrap + Lassi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('One Butter Croissant and two Cappuccinos please')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border/50 text-left transition-colors"
+                >
+                  🥐 Croissant + 2 Cappuccinos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserUtterance('I want one samosa')}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-left transition-colors"
+                >
+                  ⚠️ Stock-Out Test: 1 Samosa
                 </button>
               </div>
             </div>

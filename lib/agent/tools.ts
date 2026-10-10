@@ -99,14 +99,40 @@ export async function searchMenu(args: { query: string; property_id: string }) {
     [property_id, `%${q}%`, q.toLowerCase().trim()],
   );
 
-  if (result.rows.length === 0) {
+  let rows = result.rows;
+
+  if (rows.length === 0) {
+    const fallbackRes = await query<{
+      id: string;
+      name: string;
+      description: string;
+      price: string | number;
+      availability: string;
+      spoken_aliases: string[];
+      prep_time_minutes: number;
+    }>(
+      `SELECT id, name, description, price, availability, spoken_aliases, prep_time_minutes
+       FROM menu_items
+       WHERE (
+         name ILIKE $1
+         OR description ILIKE $1
+         OR $2 = ANY(spoken_aliases)
+       )
+       ORDER BY availability = 'available' DESC, name ASC
+       LIMIT 6`,
+      [`%${q}%`, q.toLowerCase().trim()],
+    );
+    rows = fallbackRes.rows;
+  }
+
+  if (rows.length === 0) {
     return { found: false, message: `No items matching "${q}" found on the menu.` };
   }
 
   return {
     found: true,
-    count: result.rows.length,
-    items: result.rows.map((r) => ({
+    count: rows.length,
+    items: rows.map((r) => ({
       id: r.id,
       name: r.name,
       price: Number(r.price),

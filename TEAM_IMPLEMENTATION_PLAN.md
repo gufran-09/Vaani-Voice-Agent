@@ -3,8 +3,8 @@
 *Project: Vaani — The Multilingual Voice Agent That Answers Every Call a Cafe Misses*  
 *Document Version: 1.0 | Date: October 2026*
 
----
-
+--- 
+ 
 ## 1. Executive Summary & Current Project Audit
 
 ### 1.1 Project Objective

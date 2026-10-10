@@ -10,8 +10,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   Mic, MicOff, Square, Send, Bot, Volume2, Loader2,
-  Building2, CheckCircle2, Clock, ShoppingBag,
+  Building2, CheckCircle2, Clock, ShoppingBag, Sparkles, Utensils,
 } from 'lucide-react';
+import { ALL_FOOD_ITEMS, MENU_CATEGORIES } from '@/lib/menu-data';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,56 +75,6 @@ export default function AIReceptionistPage() {
   const isMountedRef = useRef(true);
 
   // ─── Service Detection on Mount ──────────────────────────────────────────
-
-  // Live conversation testing state
-  const [testMessages, setTestMessages] = useState<Array<{ role: 'agent' | 'caller'; text: string }>>([
-    { role: 'agent', text: 'Namaste! Welcome to Cafe Vaani. What would you like to order today?' },
-  ]);
-  const [testInput, setTestInput] = useState('');
-  const [testLoading, setTestLoading] = useState(false);
-  const [testOrderCreated, setTestOrderCreated] = useState<any | null>(null);
-  const [testMockSms, setTestMockSms] = useState<any | null>(null);
-  const [testSessionId] = useState(() => `receptionist-${Date.now()}`);
-
-  const handleSendTestMessage = async (msgToSend?: string) => {
-    const text = (msgToSend || testInput).trim();
-    if (!text || testLoading || !currentProperty) return;
-
-    setTestInput('');
-    setTestLoading(true);
-    setTestMessages((prev) => [...prev, { role: 'caller', text }]);
-
-    try {
-      const res = await fetch('/api/agent/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: text,
-          sessionId: testSessionId,
-          propertyId: currentProperty.id,
-          callerPhone: escalationPhone || '+919876543210',
-          customerName: 'Receptionist Test Guest',
-        }),
-      });
-      const data = await res.json();
-      const reply = data.reply || 'Request received.';
-      setTestMessages((prev) => [...prev, { role: 'agent', text: reply }]);
-
-      if (data.orderCreated || data.order) {
-        setTestOrderCreated(data.orderCreated || data.order);
-        if (data.mockSms) {
-          setTestMockSms(data.mockSms);
-        }
-      }
-    } catch (err) {
-      setTestMessages((prev) => [
-        ...prev,
-        { role: 'agent', text: 'Sorry, could not connect to agent service.' },
-      ]);
-    } finally {
-      setTestLoading(false);
-    }
-  };
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -254,7 +205,7 @@ export default function AIReceptionistPage() {
         body: JSON.stringify({
           transcript: transcript.trim(),
           sessionId,
-          propertyId: PROPERTY_ID,
+          propertyId: currentProperty?.id || PROPERTY_ID,
         }),
       });
 
@@ -284,7 +235,7 @@ export default function AIReceptionistPage() {
     if (isMountedRef.current) {
       setStatus('idle');
     }
-  }, [sessionId, speakText]);
+  }, [sessionId, speakText, currentProperty]);
 
   // ─── Recording ───────────────────────────────────────────────────────────
 
@@ -496,137 +447,6 @@ export default function AIReceptionistPage() {
 
           <Separator />
 
-<<<<<<< HEAD
-          {/* Test Conversation (Interactive & Live) */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-display flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-accent" />
-                    Live Test Conversation
-                  </CardTitle>
-                  <CardDescription>
-                    Test your AI receptionist directly against real PostgreSQL menu & ordering pipeline with local Ollama or deterministic fallback.
-                  </CardDescription>
-                </div>
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs">
-                  Active Local Engine
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ScrollArea className="h-[300px] rounded-lg border p-4 bg-muted/20">
-                <div className="space-y-3">
-                  {testMessages.map((msg, i) => (
-                    <div key={i} className={`flex gap-3 ${msg.role === 'agent' ? 'flex-row' : 'flex-row-reverse'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        msg.role === 'agent' ? 'bg-primary' : 'bg-accent'
-                      }`}>
-                        {msg.role === 'agent' ? (
-                          <Bot className="w-4 h-4 text-primary-foreground" />
-                        ) : (
-                          <span className="text-xs font-medium text-accent-foreground">U</span>
-                        )}
-                      </div>
-                      <div className={`rounded-xl p-3 max-w-[80%] ${
-                        msg.role === 'agent' ? 'bg-secondary text-foreground' : 'bg-primary text-primary-foreground'
-                      }`}>
-                        <p className="text-sm">{msg.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {testLoading && (
-                    <div className="flex gap-3 flex-row items-center text-xs text-muted-foreground animate-pulse">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                        <Bot className="w-4 h-4 text-primary" />
-                      </div>
-                      <p>VAANI is thinking...</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-
-              {/* Order Created confirmation badge & details */}
-              {testOrderCreated && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">Order Persisted to PostgreSQL: </span>
-                    <span className="font-mono">{testOrderCreated.order_number || testOrderCreated.orderId || testOrderCreated.id}</span>
-                  </div>
-                  <Badge variant="outline" className="text-emerald-600 border-emerald-500/30">
-                    ₹{testOrderCreated.total_amount || testOrderCreated.totalAmount || 0}
-                  </Badge>
-                </div>
-              )}
-
-              {/* Mock SMS Card */}
-              {testMockSms && (
-                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">Mock SMS Notification</span>
-                      <Badge className="bg-amber-500 text-white font-mono text-[10px] uppercase tracking-wider">
-                        SIMULATED — NOT SENT
-                      </Badge>
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono">
-                      Status: {testMockSms.status}
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    <span>Recipient: </span>
-                    <span className="font-mono text-foreground">{testMockSms.to}</span>
-                  </div>
-                  <div className="bg-background/80 p-2.5 rounded-lg border text-xs font-sans text-foreground">
-                    &quot;{testMockSms.message}&quot;
-                  </div>
-                </div>
-              )}
-
-              {/* Input row */}
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Type '2 cappuccinos' or 'confirm order'..."
-                  className="flex-1"
-                  value={testInput}
-                  onChange={(e) => setTestInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSendTestMessage();
-                  }}
-                  disabled={testLoading}
-                />
-                <Button
-                  size="icon"
-                  onClick={() => handleSendTestMessage()}
-                  disabled={testLoading || !testInput.trim()}
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-
-              {/* Quick test suggestion chips */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {[
-                  'What is on the menu?',
-                  'I want 2 Cappuccinos',
-                  'Confirm order',
-                  'What is the status of my order?',
-                ].map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => handleSendTestMessage(chip)}
-                    disabled={testLoading}
-                    className="text-[11px] bg-secondary hover:bg-secondary/80 text-secondary-foreground px-2.5 py-1 rounded-full transition-colors"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </>
-=======
           {/* ── Controls ── */}
           <div className="p-4 space-y-3">
             {/* Error display */}
@@ -687,6 +507,69 @@ export default function AIReceptionistPage() {
                 <Send className="w-4 h-4" />
               </Button>
             </div>
+
+            {/* Quick database menu chips covering all 28 items */}
+            <div className="space-y-2 pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Utensils className="w-3.5 h-3.5 text-primary" />
+                  All 28 Database Food Items (Click to Order / Speak):
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {ALL_FOOD_ITEMS.length} items
+                </span>
+              </div>
+
+              {/* Scrollable Food Chips */}
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-secondary/20 rounded-lg border border-border/40 scrollbar-thin">
+                {ALL_FOOD_ITEMS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => processTranscript(`I want one ${item.name}`)}
+                    disabled={isActive}
+                    title={`${item.category_name} • ₹${item.price} • ${item.prep_time_minutes}m`}
+                    className="text-[11px] bg-secondary/80 hover:bg-secondary hover:text-foreground text-secondary-foreground px-2.5 py-1 rounded-full transition-all border border-border/50 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <span>{item.name}</span>
+                    <span className="font-mono text-[10px] opacity-75 font-bold">₹{item.price}</span>
+                  </button>
+                ))}
+                {/* Action & Combo Chips */}
+                <button
+                  type="button"
+                  onClick={() => processTranscript('1 Filter Coffee & 2 Samosas')}
+                  disabled={isActive}
+                  className="text-[11px] bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2.5 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+                >
+                  ☕ Filter Coffee + 2 Samosas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => processTranscript('1 Dal Makhani Bowl & 1 Mango Lassi')}
+                  disabled={isActive}
+                  className="text-[11px] bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2.5 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+                >
+                  🍛 Dal Makhani + Lassi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => processTranscript('1 Creamy Mushroom Pasta & 1 Garlic Bread')}
+                  disabled={isActive}
+                  className="text-[11px] bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2.5 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+                >
+                  🍝 Pasta + Garlic Bread
+                </button>
+                <button
+                  type="button"
+                  onClick={() => processTranscript('Confirm order')}
+                  disabled={isActive}
+                  className="text-[11px] bg-green-500/15 hover:bg-green-500/25 text-green-700 dark:text-green-300 border border-green-500/40 px-2.5 py-1 rounded-full font-semibold transition-colors disabled:opacity-50"
+                >
+                  ✓ Confirm Order
+                </button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -725,7 +608,6 @@ export default function AIReceptionistPage() {
             </div>
           </CardContent>
         </Card>
->>>>>>> ad821cda6730fe23d1a95556b80666f5d13129bb
       )}
     </div>
   );

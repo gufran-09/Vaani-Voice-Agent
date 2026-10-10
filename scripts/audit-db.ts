@@ -2,8 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Pool } from 'pg';
 
-// Safely load .env.local without exposing secrets
-const envPath = path.resolve(__dirname, '..', '.env.local');
+// Safely load .env or .env.local without exposing secrets
+const envLocalPath = path.resolve(__dirname, '..', '.env.local');
+const envPath = fs.existsSync(envLocalPath) ? envLocalPath : path.resolve(__dirname, '..', '.env');
 if (fs.existsSync(envPath)) {
   const lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
   for (const line of lines) {
