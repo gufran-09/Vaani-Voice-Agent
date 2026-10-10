@@ -6,27 +6,14 @@
 
 import type { Message, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import { converseWithTools, makeToolResultMessage } from './bedrock';
+import { converseWithOllama, isOllamaReachable } from './ollama';
 import { TOOL_SPECS, executeTool } from './tools';
+import { buildScopedSystemPrompt } from './knowledge';
 
 // ─── System Prompt ────────────────────────────────────────────────────────────
 const PROPERTY_ID = process.env.VAANI_PROPERTY_ID ?? '';
 
-export const SYSTEM_PROMPT = `You are Vaani, the AI voice cashier for Cafe Vaani in Bangalore.
-You speak in a warm, friendly mix of English, Hindi, and Telugu — exactly like a real Indian cafe cashier.
-
-Your PROPERTY_ID is: ${PROPERTY_ID}
-
-STRICT RULES — follow these without exception:
-1. NEVER invent prices, availability, or prep times. Always use tools to get real data.
-2. Always call search_menu FIRST to get the item ID and price before calling add_to_order.
-3. After the customer says "yes", "confirm", "haan", "sari", "okay" — call confirm_order immediately.
-4. If check_availability returns available:false, apologize and suggest the substitute item by name.
-5. Understand these quantity words: rendu=2, oka=1, randu=2, moonu=3, do=2, ek=1, teen=3, naalu=4, panch=5, oru=1.
-6. Keep ALL responses under 35 words. You are speaking aloud, not writing an essay.
-7. When customer says "no cancel", "nahi", "cancel" — call cancel_order.
-8. After confirming, say: "Your order [ORDER_NUMBER] is confirmed! Ready in [ETA] minutes. Thank you!"
-9. If the item doesn't exist on our menu, say so politely and offer to help with something else.
-10. Notes like "spicy ga kakunda" = "not spicy", "extra sugar" = add to notes.`;
+export const SYSTEM_PROMPT = buildScopedSystemPrompt(PROPERTY_ID);
 
 // ─── Per-session message history ──────────────────────────────────────────────
 const sessionHistory = new Map<string, Message[]>();
@@ -48,6 +35,7 @@ export interface TurnResult {
     totalAmount: number;
     etaMinutes: number;
     items: Array<{ name: string; quantity: number }>;
+    mockSms?: unknown;
   };
 }
 
@@ -55,7 +43,9 @@ export async function runTurn(
   sessionId: string,
   userTranscript: string,
   callerPhone?: string,
+  propertyId?: string,
 ): Promise<TurnResult> {
+  const activePropertyId = propertyId || PROPERTY_ID || process.env.VAANI_PROPERTY_ID || '';
   const history = sessionHistory.get(sessionId) ?? [];
 
   // Append user message
@@ -69,7 +59,19 @@ export async function runTurn(
   while (iterations < MAX_TOOL_ITERATIONS) {
     iterations++;
 
-    const result = await converseWithTools(history, TOOL_SPECS, SYSTEM_PROMPT);
+    let result;
+    const useLocalOllama = await isOllamaReachable();
+    if (useLocalOllama) {
+      const ollamaMessages = history.map((m) => ({
+        role: m.role || 'user',
+        content: m.content || '',
+      }));
+      result = await converseWithOllama(ollamaMessages, TOOL_SPECS, SYSTEM_PROMPT);
+    } else if (process.env.USE_BEDROCK === 'true') {
+      result = await converseWithTools(history, TOOL_SPECS, SYSTEM_PROMPT);
+    } else {
+      throw new Error('Ollama local runtime is offline and Bedrock is disabled in local mode.');
+    }
 
     // Append assistant response to history
     const assistantMsg: Message = {
@@ -102,7 +104,7 @@ export async function runTurn(
       const toolArgs = {
         ...block.input,
         session_id: sessionId,
-        property_id: PROPERTY_ID,
+        property_id: activePropertyId,
         ...(callerPhone ? { customer_phone: callerPhone } : {}),
       };
 
@@ -123,6 +125,7 @@ export async function runTurn(
             totalAmount: r.total_amount as number,
             etaMinutes:  r.prep_eta_minutes as number,
             items:       r.items as Array<{ name: string; quantity: number }>,
+            mockSms:     r.mock_sms,
           };
         }
       }

@@ -2,33 +2,36 @@
  * app/api/agent/chat/route.ts
  * POST /api/agent/chat
  *
- * Resolves merge conflict between Member 1's Regex Mock and Member 2's AI Agent.
- * Tries the AI Agent first. If Bedrock quota fails, falls back to the Regex Mock
- * so the frontend UI is never blocked.
+ * Primary voice agent turn handler:
+ * 1. Tries local Ollama / Qwen model first via runTurn.
+ * 2. If local Ollama is offline or unavailable, activates the local database-backed
+ *    menu agent that directly verifies PostgreSQL menu_items, calculates authoritative totals & ETA,
+ *    enforces the two-step Draft -> Confirm protocol, and commits transactionally via confirmOrder.
+ * 3. Triggers MockSmsProvider upon order confirmation and returns simulated notification details.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runTurn } from '@/lib/agent/orchestrator';
 import { query } from '@/lib/server-db';
+import { addToOrder, confirmOrder, getDraft, searchMenu } from '@/lib/agent/tools';
 
-export const runtime = 'nodejs'; // Required — uses AWS SDK (no edge runtime)
-export const maxDuration = 30;   // 30s timeout for Bedrock round-trips
+export const runtime = 'nodejs';
+export const maxDuration = 30;
 
-interface MenuItem {
-  [key: string]: unknown;
+interface MenuItemRow extends Record<string, unknown> {
   id: string;
   name: string;
-  price: string;
+  price: string | number;
   availability: string;
   spoken_aliases: string[];
   prep_time_minutes: number;
+  description?: string;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    
-    // Support both Member 1 & Member 2 payload structures
+
     const transcript = body.transcript || body.message || '';
     const sessionId = body.sessionId || body.callId || 'default-session';
     const callerPhone = body.callerPhone || '+919876543210';
@@ -39,52 +42,124 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'transcript or message is required' }, { status: 400 });
     }
 
+    // Resolve propertyId
+    let propertyId = inputPropertyId;
+    if (!propertyId) {
+      const propRes = await query<{ id: string }>('SELECT id FROM properties LIMIT 1');
+      if (propRes.rows.length > 0) propertyId = propRes.rows[0].id;
+    }
+
+    if (!propertyId) {
+      return NextResponse.json({
+        reply: 'Welcome to Cafe Vaani! We are getting things ready for you.',
+      });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Step 1: Try the AI Agent (Ollama Local Model / Tool loop)
+    // ──────────────────────────────────────────────────────────────────────────
     try {
-      // 1. Try the AI Agent (Member 2's implementation)
-      const result = await runTurn(sessionId, transcript.trim(), callerPhone);
+      const result = await runTurn(sessionId, transcript.trim(), callerPhone, propertyId);
       return NextResponse.json({
         reply: result.reply,
-        // Send both formats to satisfy Member 3 / Member 1 frontend
-        ...(result.orderCreated ? { 
-          orderCreated: result.orderCreated, 
-          order: {
-            id: result.orderCreated.orderId,
-            orderNumber: result.orderCreated.orderNumber,
-            totalAmount: result.orderCreated.totalAmount,
-            prepEta: result.orderCreated.etaMinutes,
-            items: result.orderCreated.items
-          }
-        } : {}),
+        ...(result.orderCreated
+          ? {
+              orderCreated: result.orderCreated,
+              order: {
+                id: result.orderCreated.orderId,
+                orderNumber: result.orderCreated.orderNumber,
+                totalAmount: result.orderCreated.totalAmount,
+                prepEta: result.orderCreated.etaMinutes,
+                items: result.orderCreated.items,
+              },
+              mockSms: result.orderCreated.mockSms,
+            }
+          : {}),
       });
     } catch (agentErr: any) {
-      console.warn('⚠️ AI Agent failed (likely Bedrock quota). Falling back to Regex Bot:', agentErr.message);
-      
-      // 2. Regex Fallback (Member 1's mock implementation)
-      const lowerText = transcript.toLowerCase().trim();
-      let propertyId = inputPropertyId;
-      if (!propertyId) {
-        const propRes = await query<{ id: string }>('SELECT id FROM properties LIMIT 1');
-        if (propRes.rows.length > 0) propertyId = propRes.rows[0].id;
-      }
-
-      if (!propertyId) {
-        return NextResponse.json({ reply: "Welcome to Cafe Vaani! We are getting things ready for you." });
-      }
-
-      const menuRes = await query<MenuItem>(
-        `SELECT id, name, price, availability, spoken_aliases, prep_time_minutes FROM menu_items WHERE property_id = $1`,
-        [propertyId]
+      console.warn(
+        'ℹ️ AI Agent provider unavailable. Running local DB-backed menu agent:',
+        agentErr.message,
       );
-      const menuItems = menuRes.rows;
 
-      if (lowerText === 'hi' || lowerText === 'hello' || lowerText === 'namaste' || lowerText.includes('kaise ho')) {
+      // ────────────────────────────────────────────────────────────────────────
+      // Step 2: Local PostgreSQL-backed Menu & Order Engine
+      // ────────────────────────────────────────────────────────────────────────
+      const lowerText = transcript.toLowerCase().trim();
+
+      // Check for Affirmation / Confirmation of Draft Order
+      const isAffirmation =
+        /\b(yes|confirm|haan|ha|sari|sure|okay|ok|theek hai|please confirm|confirm order|pack kar do|parcel cheyyandi)\b/i.test(
+          lowerText,
+        );
+
+      const existingDraft = getDraft(sessionId);
+
+      // If user confirms and a draft order exists, commit it via confirmOrder
+      if (isAffirmation && existingDraft && existingDraft.items.length > 0) {
+        const confirmResult = (await confirmOrder({
+          session_id: sessionId,
+          property_id: propertyId,
+          customer_name: customerName,
+          customer_phone: callerPhone,
+        })) as any;
+
+        if (confirmResult.success) {
+          const itemSummary = confirmResult.items
+            .map((i: any) => `${i.quantity}x ${i.name}`)
+            .join(' and ');
+          const reply = `Order ${confirmResult.order_number} confirmed! That's ${itemSummary}. Total is ₹${confirmResult.total_amount}. Ready in ~${confirmResult.prep_eta_minutes} minutes. A confirmation SMS has been simulated!`;
+
+          return NextResponse.json({
+            reply,
+            orderCreated: {
+              orderId: confirmResult.order_id,
+              orderNumber: confirmResult.order_number,
+              totalAmount: confirmResult.total_amount,
+              etaMinutes: confirmResult.prep_eta_minutes,
+              items: confirmResult.items,
+              mockSms: confirmResult.mock_sms,
+            },
+            order: {
+              id: confirmResult.order_id,
+              orderNumber: confirmResult.order_number,
+              totalAmount: confirmResult.total_amount,
+              prepEta: confirmResult.prep_eta_minutes,
+              items: confirmResult.items,
+            },
+            mockSms: confirmResult.mock_sms,
+          });
+        }
+      }
+
+      // Check for Greeting
+      if (
+        lowerText === 'hi' ||
+        lowerText === 'hello' ||
+        lowerText === 'namaste' ||
+        lowerText === 'namaskaram' ||
+        lowerText.includes('kaise ho')
+      ) {
         return NextResponse.json({
-          reply: "Namaste! Welcome to Cafe Vaani. We have fresh Filter Coffee, Masala Chai, Samosas, and Bun Maska today. What would you like to order?",
+          reply:
+            'Namaste! Welcome to Cafe Vaani. We have fresh Filter Coffee, Masala Chai, Samosas, and Bun Maska today. What would you like to order?',
         });
       }
 
+      // Query live menu items for property
+      const menuRes = await query<MenuItemRow>(
+        `SELECT id, name, price, availability, spoken_aliases, prep_time_minutes, description
+         FROM menu_items WHERE property_id = $1`,
+        [propertyId],
+      );
+      const menuItems = menuRes.rows;
+
+      // Quantity extraction supporting English, Hindi, and Telugu
       const extractQuantity = (text: string, itemName: string): number => {
-        const regex = new RegExp(`(\\d+|one|two|three|four|do|teen|chaar|okati|rendu|moodu)\\s*(?:plates?|cups?|pieces?|pcs?)?\\s*(?:of\\s*)?${itemName}`, 'i');
+        const regex = new RegExp(
+          `(\\d+|one|two|three|four|do|teen|chaar|okati|rendu|moodu)\\s*(?:plates?|cups?|pieces?|pcs?)?\\s*(?:of\\s*)?${itemName}`,
+          'i',
+        );
         const match = text.match(regex);
         if (match) {
           const val = match[1].toLowerCase();
@@ -101,88 +176,114 @@ export async function POST(req: NextRequest) {
         return 1;
       };
 
-      const matchedItems: { item: MenuItem; quantity: number }[] = [];
-      const outOfStockItems: MenuItem[] = [];
+      const matchedItems: { item: MenuItemRow; quantity: number }[] = [];
+      const outOfStockItems: MenuItemRow[] = [];
 
       for (const item of menuItems) {
-        const aliases = [item.name.toLowerCase(), ...(item.spoken_aliases || []).map((a) => a.toLowerCase())];
+        const aliases = [
+          item.name.toLowerCase(),
+          ...(item.spoken_aliases || []).map((a) => a.toLowerCase()),
+        ];
         if (aliases.some((alias) => lowerText.includes(alias))) {
           if (item.availability === 'out_of_stock' || item.availability === 'unavailable') {
             outOfStockItems.push(item);
           } else {
-            matchedItems.push({ item, quantity: extractQuantity(lowerText, item.name.toLowerCase()) });
+            matchedItems.push({
+              item,
+              quantity: extractQuantity(lowerText, item.name.toLowerCase()),
+            });
           }
         }
       }
 
+      // If out of stock, offer substitute from PostgreSQL
       if (outOfStockItems.length > 0) {
         const oos = outOfStockItems[0];
-        const substitute = menuItems.find((m) => m.id !== oos.id && (m.availability === 'available' || m.availability === 'in_stock'));
+        const substitute = menuItems.find(
+          (m) =>
+            m.id !== oos.id &&
+            (m.availability === 'available' || m.availability === 'in_stock'),
+        );
         const subName = substitute ? substitute.name : 'our fresh Veg Puff';
         return NextResponse.json({
-          reply: `Sorry ji, our ${oos.name} just ran out for today! Would you like hot ${subName} instead?`,
+          reply: `Kshama kijiye, our ${oos.name} is currently out of stock for today! Would you like hot ${subName} instead?`,
           stockOut: true,
           item: oos.name,
         });
       }
 
+      // If items matched: add to draft and either confirm or prompt for confirmation
       if (matchedItems.length > 0) {
-        let totalAmount = 0;
-        let maxPrepTime = 5;
+        // Accumulate each item into draft
         for (const m of matchedItems) {
-          totalAmount += parseFloat(m.item.price) * m.quantity;
-          if (m.item.prep_time_minutes > maxPrepTime) maxPrepTime = m.item.prep_time_minutes;
+          await addToOrder({
+            session_id: sessionId,
+            property_id: propertyId,
+            item_id: m.item.id,
+            quantity: m.quantity,
+          });
         }
 
-        const queueRes = await query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM orders WHERE property_id = $1 AND status IN ('confirmed', 'preparing', 'received')`,
-          [propertyId]
-        );
-        const activeQueue = parseInt(queueRes.rows[0]?.count || '0', 10);
-        const totalEta = maxPrepTime + activeQueue * 2;
-        const orderNum = `ORD-${Math.floor(100 + Math.random() * 900)}`;
+        const draft = getDraft(sessionId);
+        const totalAmount = draft?.totalAmount || 0;
+        const itemSummary = matchedItems
+          .map((m) => `${m.quantity}x ${m.item.name}`)
+          .join(' and ');
 
-        const orderInsertRes = await query<{ id: string }>(
-          `INSERT INTO orders (property_id, order_number, status, channel, customer_name, customer_phone, total_amount, prep_eta_minutes, notes)
-           VALUES ($1, $2, 'confirmed', 'voice', $3, $4, $5, $6, $7) RETURNING id`,
-          [propertyId, orderNum, customerName, callerPhone, totalAmount, totalEta, `Voice order: "${transcript}"`]
-        );
-        const orderId = orderInsertRes.rows[0].id;
+        // If customer said "pack kar do" / "parcel cheyyandi" or explicit confirmation in the same turn:
+        const instantOrder =
+          lowerText.includes('pack kar do') ||
+          lowerText.includes('parcel') ||
+          lowerText.includes('jaldi dena') ||
+          lowerText.includes('confirm');
 
-        for (const m of matchedItems) {
-          await query(
-            `INSERT INTO order_items (order_id, menu_item_id, name, price, quantity) VALUES ($1, $2, $3, $4, $5)`,
-            [orderId, m.item.id, m.item.name, m.item.price, m.quantity]
-          );
+        if (instantOrder) {
+          const confirmResult = (await confirmOrder({
+            session_id: sessionId,
+            property_id: propertyId,
+            customer_name: customerName,
+            customer_phone: callerPhone,
+          })) as any;
+
+          if (confirmResult.success) {
+            const reply = `Order ${confirmResult.order_number} confirmed! That's ${itemSummary}. Total is ₹${confirmResult.total_amount}. Ready in ~${confirmResult.prep_eta_minutes} minutes. A confirmation SMS is simulated!`;
+
+            return NextResponse.json({
+              reply,
+              orderCreated: {
+                orderId: confirmResult.order_id,
+                orderNumber: confirmResult.order_number,
+                totalAmount: confirmResult.total_amount,
+                etaMinutes: confirmResult.prep_eta_minutes,
+                items: confirmResult.items,
+                mockSms: confirmResult.mock_sms,
+              },
+              order: {
+                id: confirmResult.order_id,
+                orderNumber: confirmResult.order_number,
+                totalAmount: confirmResult.total_amount,
+                prepEta: confirmResult.prep_eta_minutes,
+                items: confirmResult.items,
+              },
+              mockSms: confirmResult.mock_sms,
+            });
+          }
         }
 
-        const itemSummary = matchedItems.map((m) => `${m.quantity} ${m.item.name}`).join(' and ');
-        const reply = `Order ${orderNum} confirmed! That's ${itemSummary}. Total is ₹${totalAmount.toFixed(0)}. Kitchen prep time is ${totalEta} minutes. A confirmation SMS is sent to your phone!`;
-
+        // Otherwise, ask for explicit guest confirmation
         return NextResponse.json({
-          reply,
-          orderCreated: { 
-            orderId, 
-            orderNumber: orderNum, 
-            totalAmount, 
-            etaMinutes: totalEta, 
-            items: matchedItems.map((m) => ({ name: m.item.name, quantity: m.quantity })) 
-          },
-          order: { 
-            id: orderId, 
-            orderNumber: orderNum, 
-            totalAmount, 
-            prepEta: totalEta, 
-            items: matchedItems.map((m) => ({ name: m.item.name, quantity: m.quantity })) 
-          },
+          reply: `I have noted ${itemSummary}. Total is ₹${totalAmount}, ready in ~10 minutes. Shall I confirm your order?`,
+          confirmationRequired: true,
+          cart: draft?.items,
+          totalAmount,
         });
       }
 
+      // Fallback response for unhandled utterances
       return NextResponse.json({
-        reply: `I heard "${transcript}". We have South Indian Filter Coffee, Masala Chai, Samosas, and Bun Maska. Which one can I get for you?`,
+        reply: `I heard "${transcript}". We have Filter Coffee, Masala Chai, Samosas, and Bun Maska. What can I get for you?`,
       });
     }
-
   } catch (err: any) {
     console.error('[/api/agent/chat] Error:', err);
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
@@ -193,7 +294,6 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    model: process.env.BEDROCK_MODEL_ID,
     property: process.env.VAANI_PROPERTY_ID,
   });
 }

@@ -6,7 +6,7 @@
  * Station is encoded in the description field as "station:drinks" etc.
  */
 
-import { query } from '@/lib/server-db';
+import { query } from '../server-db';
 
 // Base station capacity: how many orders a station can handle simultaneously
 const STATION_THROUGHPUT_MINUTES = 3; // Each queued order adds 3 min
