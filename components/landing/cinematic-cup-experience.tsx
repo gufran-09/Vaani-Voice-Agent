@@ -63,7 +63,7 @@ export function CinematicCupExperience({ onOpenCallDemo }: CinematicCupExperienc
 
   // Update canvas frame dynamically based on scroll progress
   useEffect(() => {
-    return smoothProgress.on('change', (p) => {
+    return smoothProgress.on('change', (p: number) => {
       const canvas = canvasRef.current;
       if (!canvas || imagesRef.current.length < TOTAL_FRAMES) return;
       const ctx = canvas.getContext('2d');
@@ -97,7 +97,7 @@ export function CinematicCupExperience({ onOpenCallDemo }: CinematicCupExperienc
   // Hero Opening Text Fades Out as Cup Takes Stage (0.00 -> 0.14)
   const heroTextOpacity = useTransform(smoothProgress, [0.0, 0.12], [1, 0]);
   const heroTextY = useTransform(smoothProgress, [0.0, 0.12], ['0px', '-60px']);
-  const heroTextPointerEvents = useTransform(smoothProgress, (val) => (val > 0.1 ? 'none' : 'auto'));
+  const heroTextPointerEvents = useTransform(smoothProgress, (val: number) => (val > 0.1 ? 'none' : 'auto'));
 
   // ================= SINGLE CONTINUOUS POUR STREAM =================
   // Starts high above the viewport, streams straight down into the cup center (left: 43.46%, top: 32%)

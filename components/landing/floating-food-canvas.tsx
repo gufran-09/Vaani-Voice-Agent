@@ -161,7 +161,7 @@ export function FloatingFoodCanvas() {
     const textureLoader = new THREE.TextureLoader();
 
     CAFE_ITEMS.forEach((item) => {
-      textureLoader.load(item.image, (tex) => {
+      textureLoader.load(item.image, (tex: THREE.Texture) => {
         tex.minFilter = THREE.LinearFilter;
         tex.magFilter = THREE.LinearFilter;
 
